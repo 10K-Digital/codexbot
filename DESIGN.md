@@ -9,3 +9,5 @@ Desktop: navegação com busca, conversa e painel de contexto. Mobile <=760px: c
 Movimento: entrada discreta do estado vazio e do diálogo; menu desliza com ease-out. Estados contínuos apenas enquanto há trabalho/conexão pendente. Respeitar prefers-reduced-motion. Não animar cada token recebido nem reconstruir painéis sem mudança.
 
 Erros: recuperação temporária é um estado de progresso; detalhes técnicos aparecem apenas em falha terminal. Interações e conteúdo devem sobreviver à reconexão. Não repetir pedidos mutáveis silenciosamente.
+
+Materialidade: fundos planos em sálvia no claro e verde profundo no escuro. Componentes com volume suave, iluminação superior esquerda, bordas iluminadas e sombras difusas. Jade acetinado nas ações principais. Transparência mais perceptível só nos diálogos, menus flutuantes e compositor; manter leitura opaca e alto contraste. Mobile reduz blur e mantém alvos de toque, sem efeitos dependentes de hover. Respeitar movimento reduzido, transparência reduzida e cores forçadas.
