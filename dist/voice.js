@@ -1,13 +1,15 @@
 import {liveVoiceControl} from './live-voice.js';
 import {t,currentLanguage} from './i18n.mjs';
 export function setupVoice({api,upload,el,button,openDialog,toast,target,accept}){
- const startLive=liveVoiceControl({api,el,button,toast});
+ const live=button('',async()=>{try{await startLive(target());}catch(e){toast(e.message);}},'icon-button voice-launch live-voice-launch');
+ const updateLive=active=>{const label=t(active?'Encerrar conversa por voz':'Iniciar conversa por voz');live.title=label;live.setAttribute('aria-label',label);live.setAttribute('aria-pressed',String(active));live.classList.toggle('active',active);};
+ const startLive=liveVoiceControl({api,el,button,toast,onState:updateLive});updateLive(false);
+ live.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M4 10v4M8 6v12M12 3v18M16 7v10M20 10v4"/></svg>';
  const launch=button('',open,'icon-button voice-launch');launch.title=t('Mensagem por voz');launch.setAttribute('aria-label',t('Mensagem por voz'));
  launch.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/></svg>';
- document.querySelector('.attach-button').after(launch);
+ document.querySelector('.attach-button').after(launch,live);
  async function open(){
   const destination=target(),box=el('div'),status=el('p',{'aria-live':'polite'},t('Verificando transcrição local…')),actions=el('div',{class:'actions'}),preview=el('textarea',{'aria-label':t('Transcrição'),'rows':'5'});preview.hidden=true;
-  box.append(el('h3',{},t('Voz ao vivo · experimental')),el('p',{},t('Converse usando sua assinatura ChatGPT. Consome os limites de voz e do agente. A chamada termina ao sair da página.')),button(t('Iniciar conversa por voz'),()=>startLive(destination),'primary'),el('h3',{},t('Gravar e transcrever')));
   box.append(el('img',{src:'/mascot.svg',class:'voice-mascot',alt:''}),el('p',{},t('Grave até 3 minutos. O Mac transcreve o áudio localmente; você revisa antes de enviar.')),status,actions,preview);openDialog(t('Mensagem por voz'),box);
   let recorder,stream,timer,ticker,cancelled=false,processing=false,recording=false,chunks=[],started=0;
   const dialog=document.querySelector('#dialog');
@@ -35,6 +37,6 @@ export function setupVoice({api,upload,el,button,openDialog,toast,target,accept}
   const use=button(t('Adicionar à mensagem'),()=>{if(!preview.value.trim())return;accept(destination,preview.value.trim());dialog.close();toast(t('Transcrição adicionada ao rascunho.'));},'primary');use.hidden=true;
   file.hidden=true;const choose=button(t('Escolher áudio'),()=>file.click());actions.append(record,choose);box.append(file,use);
   record.disabled=true;file.disabled=choose.disabled=true;
-  try{const result=await api('voice/status');if(cancelled)return;if(!result.available){status.textContent=t('Instale a transcrição local no Mac: npm run setup:voice');return;}status.textContent=t('Pronto para ouvir.');record.disabled=false;file.disabled=choose.disabled=false;}catch(e){status.textContent=t(e.message);}
+  try{const result=await api('voice/status');if(cancelled)return;if(!result.available){status.textContent=t('Instale a transcrição local no Mac: npm run setup:voice');return;}status.textContent=t('Pronto para ouvir.');record.disabled=false;file.disabled=choose.disabled=false;record.click();}catch(e){status.textContent=t(e.message);}
  }
 }

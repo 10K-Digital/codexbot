@@ -139,3 +139,5 @@ dialog input:not([type=checkbox]),dialog textarea,#language-setting,.browser-too
 .feedback-center,.feedback-form{display:grid;gap:12px}.feedback-toggle{display:flex;align-items:flex-start;gap:10px}.feedback-toggle input{width:18px;height:18px;flex-shrink:0;margin-top:3px}.feedback-suggestion pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:260px;overflow:auto}.feedback-suggestion h4{margin:0}.feedback-form textarea{width:100%;box-sizing:border-box}
 @media(pointer:coarse){.message-actions .icon-button{width:44px;height:44px}}
 .thread-banner{padding:16px 20px;border:1px solid var(--border);border-radius:16px;background:var(--surface);margin-bottom:16px}.thread-banner p{margin:8px 0;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}.thread-banner small{color:var(--muted)}.thread-nav{padding-left:18px;font-size:12px}.thread-nav>svg{width:18px;height:18px;flex-shrink:0}.history-load{align-self:center;margin:8px auto 20px}
+
+.composer-footer .live-voice-launch.active{background:var(--accent);color:var(--bg,#fff);box-shadow:0 0 0 2px var(--accent-soft)}

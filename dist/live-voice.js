@@ -1,14 +1,15 @@
 import {t} from './i18n.mjs';
-export function liveVoiceControl({api,el,button,toast}){
+export function liveVoiceControl({api,el,button,toast,onState=()=>{}}){
  let call=null;
  return async function start(agentId){
-  if(call)throw Error(t('Já existe uma conversa por voz em andamento.'));
+  if(call)return call.stop();
   if(agentId.startsWith('channel:'))throw Error(t('Selecione um agente para conversar por voz.'));
   if(!navigator.mediaDevices?.getUserMedia||!globalThis.RTCPeerConnection)throw Error(t('Use a opção de escolher um áudio neste navegador.'));
   const name=document.querySelector('#title').textContent;
   const c={closed:false,id:null,stream:null,pc:null,timer:null,timeout:null};call=c;
   const dock=el('div',{class:'voice-session',role:'region','aria-label':t('Conversa por voz')}),status=el('span',{'aria-live':'polite'},t('Conectando voz…')),audio=el('audio',{autoplay:'',playsinline:''});
-  const stop=async()=>{if(c.closed)return;c.closed=true;clearInterval(c.timer);clearTimeout(c.timeout);c.stream?.getTracks().forEach(track=>track.stop());c.pc?.close();audio.pause();audio.srcObject=null;dock.remove();document.removeEventListener('visibilitychange',hidden);window.removeEventListener('pagehide',stop);call=null;if(c.id)try{await api('voice/live/stop',{sessionId:c.id});}catch{}};
+  const stop=async()=>{if(c.closed)return;c.closed=true;clearInterval(c.timer);clearTimeout(c.timeout);c.stream?.getTracks().forEach(track=>track.stop());c.pc?.close();audio.pause();audio.srcObject=null;dock.remove();document.removeEventListener('visibilitychange',hidden);window.removeEventListener('pagehide',stop);if(call===c){call=null;onState(false);}if(c.id)try{await api('voice/live/stop',{sessionId:c.id});}catch{}};
+  c.stop=stop;onState(true);
   const hidden=()=>{if(document.hidden)void stop();};
   const finish=button(t('Encerrar'),stop,'danger'),mute=button(t('Silenciar'),()=>{const track=c.stream?.getAudioTracks()[0];if(!track)return;track.enabled=!track.enabled;mute.textContent=t(track.enabled?'Silenciar':'Ativar microfone');mute.setAttribute('aria-pressed',String(!track.enabled));status.textContent=name+' · '+t(track.enabled?'Voz ao vivo · ouvindo':'Microfone silenciado');});mute.disabled=true;
   const listen=button(t('Ouvir áudio'),()=>audio.play());listen.hidden=true;

@@ -175,7 +175,7 @@ The phone must allow microphone access and use HTTPS. Safari/iOS and Chrome choo
 
 ### Live voice with the ChatGPT subscription (experimental)
 
-The same microphone dialog offers **Start voice conversation**. This uses the installed Codex app-server's **WebRTC realtime v3** transport and the existing ChatGPT login; no API key is supplied. Audio goes directly between the browser and the voice service. The Mac starts the authenticated session and runs agent tasks, using the selected agent's instructions, skills, tools and approval workflow. Final speech transcripts are saved in that agent's conversation.
+The waveform button next to the microphone starts or ends a live voice conversation directly. The microphone opens recording and local transcription. This uses the installed Codex app-server's **WebRTC realtime v3** transport and the existing ChatGPT login; no API key is supplied. Audio goes directly between the browser and the voice service. The Mac starts the authenticated session and runs agent tasks, using the selected agent's instructions, skills, tools and approval workflow. Final speech transcripts are saved in that agent's conversation.
 
 This path was verified with a real audio round trip; the older WebSocket transport required API-key authentication, while WebRTC without v3 failed protocol negotiation. Availability can still depend on the installed Codex version, account rollout and subscription limits. This is not a promise of unlimited voice or a stable public integration contract. Keep the desktop app updated and use local transcription if realtime is unavailable. Voice and agent inference consume the account's existing allowances; see [official voice pricing](https://learn.chatgpt.com/docs/pricing).
 

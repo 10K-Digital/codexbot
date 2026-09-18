@@ -61,6 +61,7 @@ export const messages = {
 
 "Voz ao vivo · experimental":{"en":"Live voice · experimental","es":"Voz en vivo · experimental"},
 "Converse usando sua assinatura ChatGPT. Consome os limites de voz e do agente. A chamada termina ao sair da página.":{"en":"Talk using your ChatGPT subscription. Uses voice and agent allowances. The call ends when you leave the page.","es":"Habla con tu suscripción ChatGPT. Consume los límites de voz y del agente. La llamada termina al salir de la página."},
+"Encerrar conversa por voz":{"en":"End voice conversation","es":"Finalizar conversación de voz"},
 "Iniciar conversa por voz":{"en":"Start voice conversation","es":"Iniciar conversación de voz"},
 "Gravar e transcrever":{"en":"Record and transcribe","es":"Grabar y transcribir"},
 "Conversa por voz":{"en":"Voice conversation","es":"Conversación de voz"},
