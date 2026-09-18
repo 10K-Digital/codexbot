@@ -141,3 +141,24 @@ Use `Authorization: Bearer TOKEN` and `A2A-Version: 1.0`. Keep the token private
 `npm test` runs the automated suite. `node scripts/check-source.mjs` checks staged/tracked source for private paths and common credential patterns; the optional Git hooks run it before commits. Manual review is still required. Test a clean installation separately from an existing user profile. Codex App Server evolves; compatibility with future versions is not guaranteed. The app is currently macOS-specific. Interface: Portuguese, English and Spanish. Existing schedule expressions use the `America/Sao_Paulo` timezone; review schedules before enabling them in another timezone.
 
 The repository license covers Codexbot, not third-party services or subscriptions. Check upstream terms and account capabilities when installing.
+
+## Voice messages without a paid speech API
+
+Use the microphone icon beside the attachment icon to record up to three minutes, or choose an audio file (up to 12 MB). Review the transcript before adding it to the message draft. Nothing is sent to an agent until you press Send.
+
+Transcription runs locally on the Mac with faster-whisper (multilingual `base`, CPU/int8). No speech API key or additional subscription is needed. Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then run `npm run setup:voice` **inside the active installation directory** (by default `~/Library/Application Support/Codexbot` after `npm run install-service`). This downloads the Python runtime, speech dependencies and model once. Restarting the service is not required. For development, run it in the checkout instead.
+
+The phone must allow microphone access and use HTTPS. Safari/iOS and Chrome choose their supported recording format automatically. Recordings are temporarily stored under `.runtime/voice` and removed when transcription finishes or fails; transcripts remain only in your browser draft until sent. Model and Python files live in `.private` and never enter Git. These files are preserved by application updates. CPU speed and audio quality affect transcription time and accuracy.
+
+### Live voice with the ChatGPT subscription (experimental)
+
+The same microphone dialog offers **Start voice conversation**. This uses the installed Codex app-server's **WebRTC realtime v3** transport and the existing ChatGPT login; no API key is supplied. Audio goes directly between the browser and the voice service. The Mac starts the authenticated session and runs agent tasks, using the selected agent's instructions, skills, tools and approval workflow. Final speech transcripts are saved in that agent's conversation.
+
+This path was verified with a real audio round trip; the older WebSocket transport required API-key authentication, while WebRTC without v3 failed protocol negotiation. Availability can still depend on the installed Codex version, account rollout and subscription limits. This is not a promise of unlimited voice or a stable public integration contract. Keep the desktop app updated and use local transcription if realtime is unavailable. Voice and agent inference consume the account's existing allowances; see [official voice pricing](https://learn.chatgpt.com/docs/pricing).
+
+Use Mute or End call in the conversation bar. Calls stop when the page is hidden or left, after 20 minutes, or after 45 seconds without a client heartbeat. An agent already working must finish before starting voice. The normal approval cards remain available while talking. Audio playback may require tapping Play audio on mobile browsers. A physical smartphone microphone still needs a device-specific permission/playback check.
+
+
+## Mascot and motion
+
+The official transparent icon combines the green interwoven mascot with a playful wink. `dist/mascot.svg` is its simplified animated loading version: the outer loops rotate and breathe independently of the stationary face. Agent avatars have individual gradient fills and a smaller thinking animation. Animations respect reduced-motion preferences. Existing installed PWA icons may refresh only when the home-screen shortcut is reinstalled.

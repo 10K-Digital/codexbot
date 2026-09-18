@@ -10,13 +10,14 @@ export function attention(state,id,seen={}) {
  return {unread,approvals,total:unread+approvals};
 }
 export function avatarSeed(id){let hash=2166136261;for(const c of id)hash=Math.imul(hash^c.charCodeAt(0),16777619);return hash>>>0;}
+let avatarInstance=0;
 export function paintAvatar(node,id,working=false){
  const seed=avatarSeed(id);node.classList.add('character-avatar');node.classList.toggle('working',working);
  if(node.dataset.character===id)return;node.dataset.character=id;
  const colors=['#9bc7b1','#e7b975','#b7a9d8','#89bfcf','#e6a79d','#c4c982','#9fb5dd'];const color=colors[seed%colors.length];
  const shapes=['M10 22Q10 10 23 10H41Q54 10 54 23V43Q54 54 42 54H22Q10 54 10 42Z','M32 8C48 8 57 20 55 36S44 57 29 55 7 44 9 29 18 8 32 8Z','M20 10H44L57 32 45 54H19L7 32Z','M15 12Q32 4 49 12L55 42Q51 57 32 55 13 57 9 42Z','M11 24Q9 10 23 13L32 7 41 13Q55 10 53 24L57 37Q54 55 32 55 10 55 7 37Z'];
  const ns='http://www.w3.org/2000/svg',make=(tag,attrs)=>{const n=document.createElementNS(ns,tag);for(const [k,v]of Object.entries(attrs))n.setAttribute(k,v);return n;};
- const svg=make('svg',{viewBox:'0 0 64 64','aria-hidden':'true',class:'character-art'});svg.append(make('path',{d:shapes[(seed>>>4)%shapes.length],fill:color}));
+ const svg=make('svg',{viewBox:'0 0 64 64','aria-hidden':'true',class:'character-art'});const gradientId='avatar-gradient-'+(++avatarInstance),defs=make('defs',{}),gradient=make('linearGradient',{id:gradientId,x1:'0%',y1:'0%',x2:'100%',y2:'100%'});gradient.append(make('stop',{offset:'0%','stop-color':color}),make('stop',{offset:'48%','stop-color':color}),make('stop',{offset:'100%','stop-color':'#41685d'}));defs.append(gradient);svg.append(defs,make('path',{class:'character-body',d:shapes[(seed>>>4)%shapes.length],fill:'url(#'+gradientId+')'}));
  const face=make('g',{class:'character-face',fill:'none',stroke:'#243b35','stroke-width':'2.7','stroke-linecap':'round'});
  const expression=(seed>>>8)%4;
  if(expression===0){face.append(make('path',{d:'M19 28q4-5 8 0M37 28q4-5 8 0'}));}else{face.append(make('ellipse',{cx:23,cy:28,rx:2.3,ry:expression===1?4:3,fill:'#243b35',stroke:'none'}));face.append(expression===2?make('path',{d:'m37 28 7-2'}):make('ellipse',{cx:41,cy:28,rx:2.3,ry:3,fill:'#243b35',stroke:'none'}));}
