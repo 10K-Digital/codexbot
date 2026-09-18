@@ -1,4 +1,12 @@
 export const messages = {
+"Thread":{"en": "Thread", "es": "Hilo"},
+"Voltar à conversa":{"en": "Back to conversation", "es": "Volver a la conversación"},
+"Contexto independente · apenas esta thread e a mensagem de origem":{"en": "Independent context · this thread and its original message only", "es": "Contexto independiente · solo este hilo y su mensaje original"},
+"Carregar mensagens anteriores":{"en": "Load earlier messages", "es": "Cargar mensajes anteriores"},
+"Não há mensagens anteriores.":{"en": "No earlier messages.", "es": "No hay mensajes anteriores."},
+"Responder em thread":{"en": "Reply in thread", "es": "Responder en un hilo"},
+"Abrir thread":{"en": "Open thread", "es": "Abrir hilo"},
+
 "Gostei da resposta":{"en": "Helpful response", "es": "Respuesta útil"},
 "Não gostei da resposta":{"en": "Unhelpful response", "es": "Respuesta poco útil"},
 "Comentário opcional":{"en": "Optional feedback", "es": "Comentario opcional"},

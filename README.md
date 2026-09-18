@@ -170,3 +170,11 @@ Each completed reply has copy, thumbs-up and thumbs-down icons. Ratings are save
 General Manager receives the native **Codexbot Feedback Review** skill. A local scheduler checks for new feedback every Monday at 09:00 in `America/Sao_Paulo` (or after the Mac next becomes available). Empty reviews invoke no AI. Reviews process up to 40 feedback items at a time; remaining items can be reviewed manually or at the next weekly run.
 
 Open **Settings → Feedback and improvements** or the General Manager's **Routines** tab to review suggestions, approve/reject each addition, run a review, pause the weekly schedule, or enable automatic incorporation of pending and future suggestions. Automatic incorporation is off by default. Existing instructions are preserved, and concurrent edits require manual review. A failed review retains feedback for the next scheduled or manual attempt.
+
+### Message threads and bounded context
+
+Use the reply icon on a message to open an independent thread. Replies to that same message reopen its thread; nested threads start from their own selected message. Threads work in agent conversations and channels, retain their own drafts, and appear in the sidebar with unread/approval indicators. The back link returns to the parent conversation. Older messages remain available through **Load earlier messages**.
+
+Each text task starts a fresh ephemeral Codex session. The application sends at most 12 recent messages within a 12,000-character history budget, plus up to 3,000 characters from the thread's origin message and bounded attachment metadata. Agent instructions, the current request, and current attachments are separate from this history budget. Old tool traces and duplicate channel history are not replayed. A task's ongoing tool execution can still consume additional context.
+
+The `team_search_history` tool performs local keyword search and cursor pagination within the current conversation only, returning at most 6,000 characters of snippets per call. It does not call an AI or an embedding service. Thread workspaces are separated by conversation; history is preserved on disk rather than summarized destructively. Feedback review tasks load their reserved batch instead of replaying the General Manager chat. Character budgets are deterministic bounds, not exact tokenizer counts.
