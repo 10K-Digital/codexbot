@@ -1,3 +1,4 @@
+import {launchEnvironment} from './scripts/install-safety.mjs';
 import {ensureInstallation,writeFrontendConfiguration} from './configuration.mjs';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -11,6 +12,15 @@ const existing=fs.existsSync(descriptor)?JSON.parse(fs.readFileSync(descriptor,'
 const root=path.resolve(process.env.CODEXBOT_HOME||existing.root||path.join(os.homedir(),'Library/Application Support/Codexbot'));
 const label=process.env.CODEXBOT_SERVICE_LABEL||existing.label||'one.codexbot.service';
 if(!/^[A-Za-z0-9.-]+$/.test(label))throw Error('Invalid service label');
+const target=path.join(os.homedir(),'Library/LaunchAgents',label+'.plist');
+let priorEnvironment={};
+if(fs.existsSync(target)){
+ const parsed=spawnSync('/usr/bin/plutil',['-convert','json','-o','-',target],{encoding:'utf8'});
+ if(parsed.status!==0)throw Error('Could not inspect existing service configuration.');
+ const prior=JSON.parse(parsed.stdout);
+ if(![source,root].includes(prior.WorkingDirectory)||!prior.ProgramArguments?.some(x=>x===path.join(root,'server.mjs')||x===path.join(source,'server.mjs')))throw Error('Um serviço com esse nome já existe com outra configuração.');
+ priorEnvironment=prior.EnvironmentVariables||{};
+}
 fs.mkdirSync(root,{recursive:true,mode:0o700});
 for(const name of ['routing.mjs','context.mjs','feedback.mjs','builtin-skills','live-voice.mjs','voice.mjs','scripts','configuration.mjs','server.mjs','smart-cards.mjs','lib.mjs','attachments.mjs','management.mjs','a2a.mjs','a2a-clients.mjs','buzz-acp.mjs','push.mjs','virtual-browser.mjs','package.json','package-lock.json','node_modules','dist'])fs.cpSync(path.join(source,name),path.join(root,name),{recursive:true});
 ensureInstallation(root);writeFrontendConfiguration(root);
@@ -23,8 +33,8 @@ const tokenFile=path.join(root,'.runtime/buzz-token');if(!fs.existsSync(tokenFil
 const harnessDir=path.join(root,'.runtime/buzz-harnesses');fs.mkdirSync(harnessDir,{recursive:true});for(const a of catalog.agents)fs.writeFileSync(path.join(harnessDir,'equipe-'+a.id+'.json'),JSON.stringify({id:'equipe-'+a.id,label:'Equipe · '+a.name,command:process.execPath,args:[path.join(root,'buzz-acp.mjs'),a.id]},null,2));
 if(process.argv.includes('--prepare-only')){console.log('Installation prepared without starting the service.');process.exit(0);}
 const xml=s=>s.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
-const target=path.join(os.homedir(),'Library/LaunchAgents',label+'.plist');
-const content=`<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>Label</key><string>${xml(label)}</string><key>ProgramArguments</key><array><string>${xml(process.execPath)}</string><string>${xml(path.join(root,'server.mjs'))}</string></array><key>WorkingDirectory</key><string>${xml(root)}</string><key>RunAtLoad</key><true/><key>KeepAlive</key><true/><key>ThrottleInterval</key><integer>15</integer><key>EnvironmentVariables</key><dict><key>PATH</key><string>${xml(process.env.PATH||'/usr/bin:/bin')}</string></dict><key>StandardOutPath</key><string>${xml(path.join(root,'.runtime/service.log'))}</string><key>StandardErrorPath</key><string>${xml(path.join(root,'.runtime/service-error.log'))}</string></dict></plist>`;
+const environment=Object.entries(launchEnvironment(priorEnvironment)).map(([key,value])=>`<key>${xml(key)}</key><string>${xml(String(value))}</string>`).join('');
+const content=`<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>Label</key><string>${xml(label)}</string><key>ProgramArguments</key><array><string>${xml(process.execPath)}</string><string>${xml(path.join(root,'server.mjs'))}</string></array><key>WorkingDirectory</key><string>${xml(root)}</string><key>RunAtLoad</key><true/><key>KeepAlive</key><true/><key>ThrottleInterval</key><integer>15</integer><key>EnvironmentVariables</key><dict>${environment}</dict><key>StandardOutPath</key><string>${xml(path.join(root,'.runtime/service.log'))}</string><key>StandardErrorPath</key><string>${xml(path.join(root,'.runtime/service-error.log'))}</string></dict></plist>`;
 fs.mkdirSync(path.dirname(target),{recursive:true});
 if(fs.existsSync(target)){
  const prior=fs.readFileSync(target,'utf8');

@@ -28,3 +28,6 @@ auth.json
 credentials.json
 secrets.json
 backups/
+
+# Local marketing site (not versioned)
+/site/

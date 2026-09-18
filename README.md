@@ -13,27 +13,42 @@ Codexbot is an independent community project, not an official OpenAI, Cursor or 
 
 Plugins and connections are those actually available to the local Codex runtime. A connection in ChatGPT alone does not guarantee that this runtime can use it. Authentication, permissions and approvals still apply.
 
+## Install with one command
+
+Open **Terminal on your Mac** and paste:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/10K-Digital/codexbot/main/install.sh | bash
+```
+
+The installer sets up missing prerequisites, guides your ChatGPT sign-in, downloads Codexbot, runs setup and tests, installs the login service and opens the local connection page. Homebrew/macOS approvals and signing in may still need your interaction. Run as your normal user, **without sudo**. Requires a macOS version supported by the dependencies and a ChatGPT account with Codex access; account limits apply.
+
+Run the same command to update an installation created by it. Updates refuse active tasks or a dirty/diverged source checkout, back up the existing installation privately, and preserve your agents, history, skills and browser profile. Remote access is a separate optional step; this command does not expose your Mac publicly.
+
+See the **[installation guide](docs/installation.md)** for an inspect-first download, custom paths, troubleshooting, backups and optional local transcription. Prefer an assistant? Use the prompt below.
+
 ## Quick setup — copy into ChatGPT/Codex Desktop
 
 Use a desktop task that has local terminal/filesystem tools. A web-only ChatGPT conversation cannot install software on your Mac.
 
 ```text
-Install Codexbot from https://github.com/10K-Digital/codexbot into ~/dev/codexbot.
-Read README.md and AGENTS.md first. Check macOS, Git, Node.js >=22, npm,
-Google Chrome and the Codex executable. Use my own ChatGPT sign-in; never
-request an API key or copy another person's account, agents or credentials.
-If the repository already exists, inspect its changes and update safely.
-Run npm ci, npm run setup and npm test. Initialize only missing data, with
-the default General Manager; preserve every existing agent, memory, skill,
-conversation, attachment and browser profile. Run npm run install-service
-and verify http://127.0.0.1:4320/health, then open /connect in my browser.
-Check that the Codex account is authenticated before sending a test task.
-If login is required, let me complete it securely in Codex.
-Help me optionally configure private mobile HTTPS through my own Tailscale
-account. Verify my Mac's address and my identity instead of guessing them.
-Do not enable public Funnel. Do not publish the app or expose credentials.
-Show me how to install it on my phone's home screen and enable notifications.
-Report the installation/data directory, service label and verification results.
+Install Codexbot from https://github.com/10K-Digital/codexbot on my Mac.
+Read README.md, AGENTS.md and docs/installation.md first. Inspect install.sh
+before executing it, then use that installer from an interactive terminal.
+If a checkout or installation already exists, use its source path and recorded
+.private/install.json; never guess another installation or discard local edits.
+Use my own ChatGPT sign-in; never request an API key or copy anyone else's data.
+Let me complete Homebrew/macOS prompts and ChatGPT login myself if required.
+The installer must run npm ci, setup and tests, reject active jobs, back up any
+existing installation privately and preserve agents, memory, skills, messages,
+attachments, schedules, subscriptions and browser profiles. Do not bypass its
+safety checks or automatically replay interrupted tasks.
+Verify the local /health endpoint and open /connect, without exposing tokens.
+Then help configure optional private HTTPS using docs/remote-access.md and my
+own Tailscale account. Verify the Mac address and owner identity; do not enable
+public Funnel or expose credentials. Show how to add the PWA to my phone's
+home screen and enable notifications. Report installation path, service label,
+backup location and verification results.
 ```
 
 ## Manual installation
@@ -44,8 +59,7 @@ cd ~/dev/codexbot
 npm ci
 npm run setup
 npm test
-npm run install-service
-open http://127.0.0.1:4320/connect
+node scripts/install-local.mjs --bootstrap
 ```
 
 The installer creates a user LaunchAgent (`one.codexbot.service`) with `RunAtLoad` and `KeepAlive`. It copies code to `~/Library/Application Support/Codexbot`. Logging into macOS starts it; a crash triggers a restart. It does not run before macOS login. Follow the local connection page to pair the browser; keep pairing links private.
@@ -53,6 +67,15 @@ The installer creates a user LaunchAgent (`one.codexbot.service`) with `RunAtLoa
 Fresh installs have **one General Manager**, no imported skills and no schedules. Create additional agents, channels and skills in the app. The installer generates local Buzz harnesses in the installed `.runtime/buzz-harnesses/` directory.
 
 For development, `npm start` runs in the checkout after setup. Do not run it on the same port as the installed service. `CODEXBOT_PORT` (or legacy `EQUIPE_PORT`) changes the port. `EQUIPE_CODEX` sets the Codex executable path if auto-discovery cannot find it. Sign in through that Codex installation with ChatGPT.
+
+## How the Mac bridge works and remote access
+
+Your phone is the control surface; the Mac runs the bridge, agents, tools and persistent workspace. Model inference uses your ChatGPT account in the cloud. See the dedicated guides (Português):
+
+- [The Mac bridge: architecture, message flow and trust boundaries](docs/mac-bridge.md)
+- [Secure remote access: Tailscale Serve, SSH and authenticated public gateways](docs/remote-access.md)
+
+Tailscale Serve is the supported private path. Public tunnels need an identity gateway; cookie-based login also requires the frontend adaptation documented in the guide. A public URL alone does not authenticate visitors.
 
 ## Mobile access, installation and notifications
 
@@ -104,7 +127,7 @@ All private data stays in the installation, outside published assets:
 
 Back up these directories **privately** before maintenance. Account authentication remains managed by Codex; don't copy or publish its credentials. `.gitignore` excludes private state, generated integrations, deployment configuration and common secret formats. It cannot protect data intentionally pasted into tracked source files; review staged changes.
 
-Update source with a fast-forward only, run `npm ci`, `npm test`, then `npm run install-service`. Stop or finish active tasks first. The installer preserves existing private state and does not import private data from the source checkout. `.private/install.json` records the installation path and service label, including custom/legacy installations; keep it for updates. `CODEXBOT_HOME` and `CODEXBOT_SERVICE_LABEL` can explicitly select an installation.
+Use the one-line installer again, or `bash install.sh --source /absolute/path/to/your/checkout`. It updates source by fast-forward only, runs setup and tests, verifies jobs, and makes a private backup before replacing the service. Finish or stop active tasks first. See [installation and recovery](docs/installation.md). The lower-level `npm run install-service` is for manually supervised installs and does not perform the wrapper’s job checks and backup. The installer preserves existing private state and does not import private data from the source checkout. `.private/install.json` records the installation path and service label, including custom/legacy installations; keep it for updates. `CODEXBOT_HOME` and `CODEXBOT_SERVICE_LABEL` can explicitly select an installation.
 
 For the default service:
 
