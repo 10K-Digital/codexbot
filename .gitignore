@@ -31,3 +31,6 @@ backups/
 
 # Local marketing site (not versioned)
 /site/
+
+# Independent private Codexbot Cloud repository
+/codexbot-cloud/
