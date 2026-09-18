@@ -1,4 +1,17 @@
 export const messages = {
+"Tentativa {number} de {max}":{"en": "Attempt {number} of {max}", "es": "Intento {number} de {max}"},
+"Tentativas e modelos":{"en": "Attempts and models", "es": "Intentos y modelos"},
+"Motivo da parada: {reason}":{"en": "Stopped: {reason}", "es": "Detenido: {reason}"},
+"Inclui avaliações de respostas e falhas de execução.":{"en": "Includes response ratings and execution failures.", "es": "Incluye valoraciones de respuestas y fallos de ejecución."},
+"Limite de tentativas atingido":{"en": "attempt limit reached", "es": "límite de intentos alcanzado"},
+"Execução parcial possível; revise antes de repetir":{"en": "possible partial execution; check before retrying", "es": "posible ejecución parcial; revisa antes de reintentar"},
+"Acesso ou autorização necessária":{"en": "access or authorization required", "es": "se requiere acceso o autorización"},
+"Limite de uso atingido":{"en": "usage limit reached", "es": "límite de uso alcanzado"},
+"Conexão indisponível":{"en": "connection unavailable", "es": "conexión no disponible"},
+"Dependência externa ou informação ausente":{"en": "external dependency or missing input", "es": "dependencia externa o información faltante"},
+"Nenhum modelo compatível mais capaz disponível":{"en": "no stronger compatible model available", "es": "no hay un modelo compatible más potente"},
+"Interrompida pelo usuário ou sessão":{"en": "interrupted by user or session", "es": "interrumpido por el usuario o la sesión"},
+
 "Thread":{"en": "Thread", "es": "Hilo"},
 "Voltar à conversa":{"en": "Back to conversation", "es": "Volver a la conversación"},
 "Contexto independente · apenas esta thread e a mensagem de origem":{"en": "Independent context · this thread and its original message only", "es": "Contexto independiente · solo este hilo y su mensaje original"},
