@@ -1,0 +1,30 @@
+.runtime/
+.private/
+node_modules/
+*.log
+# Account configuration, generated integrations and deployment identities
+.env
+.env.*
+!.env.example
+.openai/
+dist/.openai/
+dist/config.js
+buzz-harnesses/
+*.pem
+*.key
+*.p12
+*.pfx
+*.bundle
+*.sqlite*
+.DS_Store
+coverage/
+# Private agent working directories and authentication exports
+memory/
+memories/
+agents/
+skills/
+.codex/
+auth.json
+credentials.json
+secrets.json
+backups/

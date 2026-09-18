@@ -1,0 +1,11 @@
+#!/bin/sh
+# A Sites publication must have the same source commit backed up to GitHub first.
+case "$2" in
+  https://git.chatgpt-team.site/*)
+    while read local_ref local_sha remote_ref remote_sha; do
+      [ "$remote_ref" = refs/heads/main ] || continue
+      case "$local_sha" in 0000000000000000000000000000000000000000) echo 'Refusing to delete the Sites source branch.' >&2; exit 1;; esac
+      env -u GIT_CONFIG_PARAMETERS -u GIT_CONFIG_COUNT git -c http.extraHeader= -c core.hooksPath=/dev/null push github "$local_sha:refs/heads/main" || exit 1
+    done
+    ;;
+esac
