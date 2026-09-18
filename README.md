@@ -162,3 +162,11 @@ Use Mute or End call in the conversation bar. Calls stop when the page is hidden
 ## Mascot and motion
 
 The official transparent icon combines the green interwoven mascot with a playful wink. `dist/mascot.svg` is its simplified animated loading version: the outer loops rotate and breathe independently of the stationary face. Agent avatars have individual gradient fills and a smaller thinking animation. Animations respect reduced-motion preferences. Existing installed PWA icons may refresh only when the home-screen shortcut is reinstalled.
+
+### Feedback-driven improvements
+
+Each completed reply has copy, thumbs-up and thumbs-down icons. Ratings are saved immediately; written feedback is optional and editable by rating the reply again. Feedback and instruction history stay in `.runtime/feedback.json`, excluded from Git.
+
+General Manager receives the native **Codexbot Feedback Review** skill. A local scheduler checks for new feedback every Monday at 09:00 in `America/Sao_Paulo` (or after the Mac next becomes available). Empty reviews invoke no AI. Reviews process up to 40 feedback items at a time; remaining items can be reviewed manually or at the next weekly run.
+
+Open **Settings → Feedback and improvements** or the General Manager's **Routines** tab to review suggestions, approve/reject each addition, run a review, pause the weekly schedule, or enable automatic incorporation of pending and future suggestions. Automatic incorporation is off by default. Existing instructions are preserved, and concurrent edits require manual review. A failed review retains feedback for the next scheduled or manual attempt.

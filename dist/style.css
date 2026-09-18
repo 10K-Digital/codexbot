@@ -132,3 +132,9 @@ dialog input:not([type=checkbox]),dialog textarea,#language-setting,.browser-too
 }
 @media(prefers-reduced-transparency:reduce){dialog,.create-menu,.mention-menu,.latest,.sidebar,.composer-wrap form,.voice-session{background:var(--glass-solid);backdrop-filter:none;-webkit-backdrop-filter:none}dialog::backdrop{backdrop-filter:none;-webkit-backdrop-filter:none}}
 @media(forced-colors:active){.workspace main,.agent-button.active,.tabs button[aria-selected=true],button,.composer-wrap form,dialog{box-shadow:none;border:1px solid ButtonText}.character-art,.brand-mark{filter:none}}
+/* Compact feedback controls and private review workspace. */
+.message-actions{display:flex;gap:4px;align-items:center}
+.message-actions .icon-button{width:34px;height:34px;padding:8px;display:inline-flex;align-items:center;justify-content:center;border-radius:10px}
+.message-actions .icon-button[aria-pressed="true"]{color:var(--accent);background:var(--selected,#dcebdd);box-shadow:inset 0 0 0 1px currentColor}
+.feedback-center,.feedback-form{display:grid;gap:12px}.feedback-toggle{display:flex;align-items:flex-start;gap:10px}.feedback-toggle input{width:18px;height:18px;flex-shrink:0;margin-top:3px}.feedback-suggestion pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:260px;overflow:auto}.feedback-suggestion h4{margin:0}.feedback-form textarea{width:100%;box-sizing:border-box}
+@media(pointer:coarse){.message-actions .icon-button{width:44px;height:44px}}
