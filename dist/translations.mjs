@@ -1,4 +1,5 @@
 export const messages = {
+"{count} pendências para você":{"en":"{count} items need your attention","es":"{count} pendientes para ti"},
 "Tela cheia":{"en":"Fullscreen","es":"Pantalla completa"},
 "Sair da tela cheia":{"en":"Exit fullscreen","es":"Salir de pantalla completa"},
 "Use um endereço HTTP ou HTTPS válido.":{"en":"Enter a valid HTTP or HTTPS address.","es":"Introduce una dirección HTTP o HTTPS válida."},

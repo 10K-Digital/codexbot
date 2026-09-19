@@ -4,10 +4,29 @@ export function connectionState(previous,{ok,status=0,now=Date.now()}) {
  return {failures,since,phase:status===401||status===403?'unauthorized':failures>=3&&now-since>=15000?'offline':'reconnecting'};
 }
 
-export function attention(state,id,seen={}) {
- const unread=state.messages.filter(m=>(m.conversationId||m.agentId)===id&&m.role==='assistant'&&!m.streaming&&m.createdAt>(seen[id]||'')).length;
- const approvals=state.approvals.filter(r=>{const job=state.jobs.find(j=>j.id===r.jobId)||state.jobs.find(j=>j.agentId===r.agentId&&j.status==='waiting');return (job?.conversationId||r.conversationId||r.agentId)===id;}).length;
- return {unread,approvals,total:unread+approvals};
+export function attention(state,id,seen={},includeThreads=false) {
+ const conversation=item=>item.conversationId||item.agentId;
+ const belongs=item=>conversation(item)===id||(includeThreads&&item.agentId===id&&conversation(item)?.startsWith('thread:'));
+ const messages=state.messages.filter(m=>belongs(m)&&['assistant','agent'].includes(m.role)&&!m.streaming&&!m.superseded);
+ const pendingCards=messages.filter(m=>m.card?.actions?.length&&!m.card.response);
+ const unread=messages.filter(m=>!pendingCards.includes(m)&&Math.max(Date.parse(m.createdAt)||0,Date.parse(state.jobs.find(j=>j.id===m.jobId)?.finishedAt)||0)>(Date.parse(seen[conversation(m)])||0)).length;
+ const approvals=state.approvals.filter(r=>{const job=state.jobs.find(j=>j.id===r.jobId)||state.jobs.find(j=>j.agentId===r.agentId&&j.status==='waiting');return belongs({...r,conversationId:job?.conversationId||r.conversationId});});
+ const waiting=state.jobs.filter(j=>belongs(j)&&j.status==='waiting'&&!approvals.some(r=>r.jobId===j.id||!r.jobId&&r.agentId===j.agentId)&&!pendingCards.some(m=>m.jobId===j.id));
+ const tasks=pendingCards.length+waiting.length;
+ return {unread,approvals:approvals.length,tasks,total:unread+approvals.length+tasks};
+}
+export function createAgentPresence(){
+ let previous=null,jobs=[];const celebrations=new Map();
+ return {update(next,now=Date.now()){
+  if(previous)for(const job of next)if(job.status==='completed'&&previous.get(job.id)!=='completed'){
+   for(const id of new Set([job.agentId,job.conversationId||job.agentId]))celebrations.set(id,{token:job.id,until:now+1000});
+  }
+  previous=new Map(next.map(j=>[j.id,j.status]));jobs=next;
+ },get(id,now=Date.now()){const celebration=celebrations.get(id);return {working:jobs.some(j=>(j.agentId===id||(j.conversationId||j.agentId)===id)&&['running','queued'].includes(j.status)),celebration:celebration?.until>now?celebration.token:null};}};
+}
+export function paintPresence(node,id,presence){
+ const {working,celebration}=presence.get(id);paintAvatar(node,id,working);
+ if(celebration&&node.dataset.celebration!==celebration){node.dataset.celebration=celebration;if(!matchMedia('(prefers-reduced-motion: reduce)').matches)node.animate([{transform:'translateY(0) scale(1)'},{transform:'translateY(2px) scale(1.06,.9)',offset:.2},{transform:'translateY(-9px) scale(.96,1.04)',offset:.5},{transform:'translateY(0) scale(1.05,.95)',offset:.8},{transform:'translateY(0) scale(1)'}],{duration:650,easing:'ease-in-out'});}
 }
 export function avatarSeed(id){let hash=2166136261;for(const c of id)hash=Math.imul(hash^c.charCodeAt(0),16777619);return hash>>>0;}
 let avatarInstance=0;
