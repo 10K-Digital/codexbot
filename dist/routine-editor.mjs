@@ -1,15 +1,20 @@
-import {cronToSchedule,scheduleToCron,describeSchedule} from './schedule.mjs';
+import {cronToSchedule,scheduleToCron,describeSchedule,routineSchedule,describeRoutine,onceDate,saoPauloInput} from './schedule.mjs';
 export function routineEditor(r,{el,button,t,save}){
  const box=el('div',{class:'routine-editor'}),prompt=el('textarea',{rows:9},r.prompt),promptLabel=el('label',{},t('Instruções da rotina'));promptLabel.append(prompt);box.append(promptLabel);
- const existing=cronToSchedule(r.cron),initial=existing||{kind:'weekly',days:[1,2,3,4,5],hours:[9],minute:0};let changed=false;
+ const existing=routineSchedule(r),initial=existing||{kind:'weekly',days:[1,2,3,4,5],hours:[9],minute:0};let changed=false;
  const frequency=el('select'),fields=el('div',{class:'schedule-fields'}),summary=el('p',{class:'muted','aria-live':'polite'}),error=el('p',{role:'alert',class:'form-error'});
- for(const [value,label] of [['weekly','Dias e horários'],['interval','A cada algumas horas'],['monthly','Mensal']])frequency.append(el('option',{value},t(label)));
+ for(const [value,label] of [['once','Uma única vez'],['weekly','Dias e horários'],['interval','A cada algumas horas'],['monthly','Mensal']])frequency.append(el('option',{value},t(label)));
  frequency.value=initial.kind;const label=el('label',{},t('Frequência'));label.append(frequency);box.append(label,fields,summary);
  let read;
- const update=()=>{try{summary.textContent=describeSchedule(scheduleToCron(read()),t)+' · '+t('Horário de São Paulo');error.textContent='';}catch(e){summary.textContent=t(e.message);}};
+ const update=()=>{try{summary.textContent=(read().kind==='once'?describeRoutine({schedule:read()},t):describeSchedule(scheduleToCron(read()),t))+' · '+t('Horário de São Paulo');error.textContent='';}catch(e){summary.textContent=t(e.message);}};
  function render(){
   fields.replaceChildren();const kind=frequency.value,controls={};
   const number=(key,title,value,min,max)=>{const input=el('input',{type:'number',min,max,value});const label=el('label',{},t(title));label.append(input);fields.append(label);controls[key]=input;};
+  if(kind==='once'){
+   const input=el('input',{type:'datetime-local',value:saoPauloInput(initial.at||Date.now()+3600000)}),label=el('label',{},t('Data e horário (São Paulo)'));label.append(input);fields.append(label);
+   read=()=>({kind:'once',at:onceDate(input.value+':00-03:00')});
+   fields.oninput=()=>{changed=true;update();};update();return;
+  }
   let days=[],hours=[];
   if(kind!=='monthly'){
    const group=el('fieldset'),legend=el('legend',{},t('Dias da semana'));group.append(legend);
@@ -26,6 +31,6 @@ export function routineEditor(r,{el,button,t,save}){
  }
  frequency.onchange=()=>{changed=true;render();};render();
  if(!existing)summary.textContent=t('Agendamento personalizado preservado. Altere a frequência apenas se desejar substituí-lo.');
- box.append(el('p',{class:'muted'},t('Horários perdidos com o Mac desligado não são recuperados. Dias 29–31 só executam nos meses que possuem esse dia. Pausar não interrompe tarefas em andamento.')),error);
- const submit=button(t('Salvar alterações'),async()=>{try{error.textContent='';const body={id:r.id,prompt:prompt.value};if(changed){body.schedule=read();scheduleToCron(body.schedule);}submit.disabled=true;await save(body);}catch(e){error.textContent=t(e.message);}finally{submit.disabled=false;}},'primary');box.append(submit);return box;
+ box.append(el('p',{class:'muted'},t('Agendamentos únicos executam quando o Mac voltar a ficar disponível e são desativados após o disparo. Horários recorrentes perdidos com o Mac desligado não são recuperados. Dias 29–31 só executam nos meses que possuem esse dia. Pausar não interrompe tarefas em andamento.')),error);
+ const submit=button(t('Salvar alterações'),async()=>{try{error.textContent='';const body={id:r.id,prompt:prompt.value};if(changed){body.schedule=read();if(body.schedule.kind==='once')onceDate(body.schedule.at,{future:true});else scheduleToCron(body.schedule);}submit.disabled=true;await save(body);}catch(e){error.textContent=t(e.message);}finally{submit.disabled=false;}},'primary');box.append(submit);return box;
 }

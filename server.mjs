@@ -62,7 +62,7 @@ function enqueue(agentId,text,{from='user',parentJob=null,depth=0,routineId=null
 const failureMemory=createFailureMemory(ROOT);
 for(const job of state.jobs.filter(j=>j.status==='failed').slice(-100))failureMemory.record(job,{terminal:true});
 const feedback=createFeedback({root:ROOT,state,catalog,manage,enqueue,persist,failureEntries:()=>failureMemory.entries()});
-const routines=createRoutines({state,persist,feedback});
+const routines=createRoutines({state,persist,feedback,enqueue,onError:(r,e)=>message(r.agentId,'system',e.message)});
 let availableModels=[];
 const messageThreads=createMessageThreads({state,persist,isPrivate:m=>!state.jobs.find(j=>j.id===m.jobId)?.a2a});
 const tools=[...routineTools,outcomeTool,historyTool,feedbackTool,cardTool,
@@ -288,7 +288,7 @@ const server=http.createServer(async(req,res)=>{
  }catch(e){send(400,{error:e.message});}
 });
 setInterval(()=>void push.tick([...pending.values()],catalog.agents).catch(()=>{}),5000).unref();
-setInterval(()=>{for(const r of state.routines){if(!r.enabled)continue;const slot=scheduleSlot(r.cron);if(!slot||state.scheduleSlots[r.id]===slot)continue;if(state.jobs.some(j=>j.routineId===r.id&&['queued','running','waiting'].includes(j.status)))continue;state.scheduleSlots[r.id]=slot;persist();try{enqueue(r.agentId,r.prompt,{from:'Rotina: '+r.name,routineId:r.id});}catch(e){message(r.agentId,'system',e.message);}}},15000).unref();
+setInterval(()=>routines.tick(),15000).unref();
 const awake=spawn('/usr/bin/caffeinate',['-i','-w',String(process.pid)],{stdio:'ignore'});awake.on('error',()=>{});
 server.listen(PORT,'127.0.0.1',()=>{console.log(`Equipe em http://127.0.0.1:${PORT}/connect`);void connect().then(pump).catch(e=>console.error(e.message));});
 process.on('SIGTERM',()=>{persist();browser.close();child?.kill();server.close(()=>process.exit(0));});

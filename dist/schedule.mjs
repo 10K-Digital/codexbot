@@ -24,3 +24,13 @@ export function cronToSchedule(cron){
  return {kind:'weekly',days:d,hours,minute:+f[0]};
 }
 export function describeSchedule(cron,t=x=>x){const s=cronToSchedule(cron);if(!s)return t('Agendamento personalizado preservado');const period=s.kind==='monthly'?t('Dia {day} de cada mês').replace('{day}',s.day):s.days.length===7?t('Todos os dias'):s.days.map(n=>t(days[n])).join(', ');const time=h=>String(h).padStart(2,'0')+':'+String(s.minute).padStart(2,'0');return period+' · '+(s.kind==='interval'?t('A cada {every}h, de {start} a {end}').replace('{every}',s.every).replace('{start}',time(s.start)).replace('{end}',time(s.end)):s.hours.map(time).join(', '));}
+
+export function onceDate(value,{future=false,now=Date.now()}={}){
+ if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{3})?)?(?:Z|[+-]\d{2}:\d{2})$/.test(value))throw Error('Informe uma data e horário com fuso horário.');
+ const date=new Date(value);if(!Number.isFinite(date.getTime())||(future&&date.getTime()<=now))throw Error('Escolha uma data e horário no futuro.');
+ const day=value.slice(0,10);if(new Date(day+'T00:00:00Z').toISOString().slice(0,10)!==day)throw Error('Data inválida.');
+ return date.toISOString();
+}
+export function routineSchedule(r){return r.schedule?.kind==='once'?r.schedule:cronToSchedule(r.cron);}
+export function describeRoutine(r,t=x=>x){return r.schedule?.kind==='once'?t('Uma única vez')+' · '+new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',dateStyle:'short',timeStyle:'short'}).format(new Date(r.schedule.at)):describeSchedule(r.cron,t);}
+export function saoPauloInput(at){const parts=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date(at)).map(p=>[p.type,p.value]));return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;}

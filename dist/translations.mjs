@@ -1,4 +1,14 @@
 export const messages = {
+"Uma única vez":{"en": "One time", "es": "Una sola vez"},
+"Já disparada":{"en": "Already triggered", "es": "Ya ejecutada"},
+"Reagendar":{"en": "Reschedule", "es": "Reprogramar"},
+"Data e horário (São Paulo)":{"en": "Date and time (São Paulo)", "es": "Fecha y hora (São Paulo)"},
+"Informe uma data e horário com fuso horário.":{"en": "Enter a date and time with a time zone.", "es": "Introduce una fecha y hora con zona horaria."},
+"Escolha uma data e horário no futuro.":{"en": "Choose a future date and time.", "es": "Elige una fecha y hora futuras."},
+"Data inválida.":{"en": "Invalid date.", "es": "Fecha no válida."},
+"Esta rotina já foi disparada. Escolha uma nova data para agendar novamente.":{"en": "This routine has already been triggered. Choose a new date to schedule it again.", "es": "Esta rutina ya se ejecutó. Elige una nueva fecha para programarla otra vez."},
+"Agendamentos únicos executam quando o Mac voltar a ficar disponível e são desativados após o disparo. Horários recorrentes perdidos com o Mac desligado não são recuperados. Dias 29–31 só executam nos meses que possuem esse dia. Pausar não interrompe tarefas em andamento.":{"en": "One-time schedules run when the Mac becomes available again and are disabled after being triggered. Missed recurring runs are not recovered. Days 29–31 only run in months with that day. Pausing does not interrupt running tasks.", "es": "Las tareas de una sola vez se ejecutan cuando el Mac vuelve a estar disponible y se desactivan después. Las ejecuciones recurrentes perdidas no se recuperan. Los días 29–31 solo se ejecutan en los meses que tienen ese día. Pausar no interrumpe tareas en curso."},
+
 "Tentativa {number} de {max}":{"en": "Attempt {number} of {max}", "es": "Intento {number} de {max}"},
 "Tentativas e modelos":{"en": "Attempts and models", "es": "Intentos y modelos"},
 "Motivo da parada: {reason}":{"en": "Stopped: {reason}", "es": "Detenido: {reason}"},
