@@ -14,6 +14,6 @@ export function browserFullscreen({shell,button,t,onChange=()=>{},doc=document})
   background=[...doc.body.children].filter(element=>element!==shell).map(element=>[element,element.inert]);for(const [element] of background)element.inert=true;
   active=true;shell.classList.add('browser-fullscreen');doc.body.classList.add('browser-fullscreen-open');paint();button.focus();onChange(active);
  }
- doc.addEventListener('keydown',event=>{if(active&&event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();restore();}},true);
+ doc.addEventListener('keydown',event=>{if(active&&event.key==='Escape'&&!shell.querySelector('dialog[open]')){event.preventDefault();event.stopImmediatePropagation();restore();}},true);
  paint();return {toggle};
 }

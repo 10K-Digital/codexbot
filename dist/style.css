@@ -149,7 +149,11 @@ dialog:has(.routine-editor){overflow-y:auto}.routine-editor select{padding:10px 
 
 #composer .thread-compose-label{margin:14px 16px 0;line-height:1.5}
 
-.browser-clipboard{margin:12px 0;padding:12px;border:1px solid var(--border);border-radius:12px}.browser-clipboard summary{cursor:pointer;font-weight:600;min-height:32px}.browser-clipboard label{display:grid;gap:8px;margin:12px 0}.browser-clipboard textarea{width:100%;box-sizing:border-box;min-height:88px;background:var(--bg);color:var(--fg);border:1px solid var(--border);border-radius:8px;padding:10px;font:inherit}.browser-clipboard p{font-size:13px;line-height:1.5}.browser-clipboard .actions{flex-wrap:wrap}.browser-screen{user-select:none;-webkit-user-drag:none}
+ .browser-clipboard-dialog{width:min(400px,calc(100vw - 32px));max-height:calc(100dvh - 32px);padding:20px;border:1px solid var(--border);border-radius:18px;background:var(--surface);color:var(--fg);overflow:auto;box-shadow:var(--shadow)}
+.browser-clipboard-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}.browser-clipboard-heading h2{font-size:18px;letter-spacing:-.3px;margin:0}
+.browser-clipboard-dialog .clipboard-actions{display:flex;align-items:center;gap:8px;margin:10px 0}.browser-clipboard-dialog .icon-button{width:44px;height:44px;flex:0 0 44px;border:1px solid var(--border);border-radius:10px;background:var(--subtle);color:var(--fg)}
+.browser-clipboard-heading .icon-button{border:0;background:transparent}.browser-clipboard-dialog label{display:grid;gap:8px;margin-top:16px;font-size:13px}.browser-clipboard-dialog textarea{width:100%;min-height:88px;max-height:180px;resize:vertical;background:var(--bg);color:var(--fg);border:1px solid var(--border);border-radius:10px;padding:10px;font:inherit}.browser-clipboard-dialog p{font-size:12px;line-height:1.5;margin:10px 0 0}.browser-clipboard-dialog p:empty{display:none}.browser-clipboard-dialog .clipboard-hint{color:var(--muted)}
+.browser-screen{user-select:none;-webkit-user-drag:none}
 
 /* Only the navigation bar and remote browser enter fullscreen. */
 body.browser-fullscreen-open{overflow:hidden}
