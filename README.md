@@ -1,5 +1,7 @@
 # Codexbot
 
+**Website & interactive demo:** [codexbot.live](https://codexbot.live)
+
 A self-hosted workspace for a team of agents running through Codex on your Mac, using **your own ChatGPT sign-in**. Includes agent conversations, channels, skills, schedules, approvals, attachments, interactive cards, a shared persistent Chrome browser, and a mobile PWA.
 
 Codexbot is an independent community project, not an official OpenAI, Cursor or xAI product. MIT licensed. It does not include anyone's personal agents, skills, memory, account data or credentials.
