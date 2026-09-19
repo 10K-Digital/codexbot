@@ -186,7 +186,7 @@ function decide(id,input){const r=pending.get(id);if(!r)throw Error('Pedido expi
  else result={decision:input.approved?'accept':'decline'};
  reply(r.rpcId,result);pending.delete(id);const j=running.get(r.agentId);if(j)j.status='running';message(r.agentId,'system',input.approved?'Ação aprovada pelo usuário.':'Resposta registrada / ação não aprovada.');persist();
 }
-function snapshot(){return {messageThreads:state.messageThreads,feedback:feedback.publicState(),channels:state.channels,agents:catalog.agents,skills:catalog.skills.map(publicSkill),routines:state.routines,jobs:state.jobs.slice(-300),messages:state.messages.slice(-1500),exchanges:state.exchanges.slice(-200),approvals:[...pending.values()].map(({rpcId,...r})=>r),connection:{ready,account,error:connectionError},site:SITE,remote:REMOTE};}
+function snapshot(){return {timezone:state.timezone,messageThreads:state.messageThreads,feedback:feedback.publicState(),channels:state.channels,agents:catalog.agents,skills:catalog.skills.map(publicSkill),routines:state.routines,jobs:state.jobs.slice(-300),messages:state.messages.slice(-1500),exchanges:state.exchanges.slice(-200),approvals:[...pending.values()].map(({rpcId,...r})=>r),connection:{ready,account,error:connectionError},site:SITE,remote:REMOTE};}
 const voice=createVoice({root:ROOT});
 const liveVoice=createLiveVoice({rpc,begin:async agentId=>{
  if(!byAgent.has(agentId))throw Error('Selecione um agente para conversar por voz.');
@@ -277,11 +277,12 @@ const server=http.createServer(async(req,res)=>{
    if(url.pathname==='/api/approval'){decide(b.id,b);return send(200,{ok:true});}
    if(url.pathname==='/api/connect'){await connect();return send(200,{ok:true});}
    if(url.pathname==='/api/stop'){const j=state.jobs.find(j=>j.id===b.jobId);if(!j)return send(404,{error:'Tarefa desconhecida'});await cancelJob(j);return send(200,{ok:true});}
+   if(url.pathname==='/api/timezone')return send(200,routines.setTimezone(b.timezone));
    if(url.pathname==='/api/routine')return send(200,routines.update(b));
    return send(404,{error:'Rota desconhecida'});
   }
   if(req.method!=='GET')return send(405,{error:'Método não permitido'});
-  const files={'/browser-fullscreen.mjs':'browser-fullscreen.mjs','/browser-url.mjs':'browser-url.mjs','/browser-clipboard.mjs':'browser-clipboard.mjs','/navigation.mjs':'navigation.mjs','/schedule.mjs':'schedule.mjs','/routine-editor.mjs':'routine-editor.mjs','/feedback.js':'feedback.js','/live-voice.js':'live-voice.js','/voice.js':'voice.js','/mascot.svg':'mascot.svg','/':'index.html','/app.js':'app.js','/style.css':'style.css','/favicon.svg':'favicon.svg','/connection.mjs':'connection.mjs','/cards.mjs':'cards.mjs','/manifest.webmanifest':'manifest.webmanifest','/manifest.pt.webmanifest':'manifest.pt.webmanifest','/manifest.en.webmanifest':'manifest.en.webmanifest','/manifest.es.webmanifest':'manifest.es.webmanifest','/icon.svg':'icon.svg','/pwa.js':'pwa.js','/i18n.mjs':'i18n.mjs','/translations.mjs':'translations.mjs','/sw.js':'sw.js','/icon-192.png':'icon-192.png','/icon-512.png':'icon-512.png','/apple-touch-icon.png':'apple-touch-icon.png'};
+  const files={'/timezone.mjs':'timezone.mjs','/browser-fullscreen.mjs':'browser-fullscreen.mjs','/browser-url.mjs':'browser-url.mjs','/browser-clipboard.mjs':'browser-clipboard.mjs','/navigation.mjs':'navigation.mjs','/schedule.mjs':'schedule.mjs','/routine-editor.mjs':'routine-editor.mjs','/feedback.js':'feedback.js','/live-voice.js':'live-voice.js','/voice.js':'voice.js','/mascot.svg':'mascot.svg','/':'index.html','/app.js':'app.js','/style.css':'style.css','/favicon.svg':'favicon.svg','/connection.mjs':'connection.mjs','/cards.mjs':'cards.mjs','/manifest.webmanifest':'manifest.webmanifest','/manifest.pt.webmanifest':'manifest.pt.webmanifest','/manifest.en.webmanifest':'manifest.en.webmanifest','/manifest.es.webmanifest':'manifest.es.webmanifest','/icon.svg':'icon.svg','/pwa.js':'pwa.js','/i18n.mjs':'i18n.mjs','/translations.mjs':'translations.mjs','/sw.js':'sw.js','/icon-192.png':'icon-192.png','/icon-512.png':'icon-512.png','/apple-touch-icon.png':'apple-touch-icon.png'};
   if(!files[url.pathname])return send(404,{error:'Arquivo não encontrado'});
   const ext=path.extname(files[url.pathname]),mime={'.png':'image/png','.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.mjs':'text/javascript','.webmanifest':'application/manifest+json'}[ext];
   res.writeHead(200,{'Content-Type':mime+'; charset=utf-8'});res.end(fs.readFileSync(path.join(ROOT,'dist',files[url.pathname])));

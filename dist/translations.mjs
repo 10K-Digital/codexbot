@@ -1,4 +1,12 @@
 export const messages = {
+"Fuso horário: {zone}":{"en": "Time zone: {zone}", "es": "Zona horaria: {zone}"},
+"Data e horário":{"en": "Date and time", "es": "Fecha y hora"},
+"Fuso horário inválido.":{"en": "Invalid time zone.", "es": "Zona horaria no válida."},
+"Agenda atual: {zone}. Ao alterar os horários, será usado {local}.":{"en": "Current schedule: {zone}. When changing times, {local} will be used.", "es": "Agenda actual: {zone}. Al cambiar los horarios se usará {local}."},
+"Defina dias, horários e instruções. Fuso detectado: {zone}. Pausar afeta apenas as próximas execuções.":{"en": "Set days, times and instructions. Detected time zone: {zone}. Pausing affects future runs only.", "es": "Define días, horarios e instrucciones. Zona detectada: {zone}. Pausar solo afecta ejecuciones futuras."},
+"Segundas-feiras às 9h · {zone}. A IA só é acionada se houver feedback novo.":{"en": "Mondays at 9am · {zone}. AI runs only when there is new feedback.", "es": "Lunes a las 9 · {zone}. La IA se activa solo si hay comentarios nuevos."},
+"Este horário não existe neste fuso devido à mudança de horário de verão. Escolha outro horário.":{"en": "This local time does not exist due to daylight saving time. Choose another time.", "es": "Esta hora local no existe por el cambio de horario de verano. Elige otra hora."},
+
 "{count} pendências para você":{"en":"{count} items need your attention","es":"{count} pendientes para ti"},
 "Tela cheia":{"en":"Fullscreen","es":"Pantalla completa"},
 "Sair da tela cheia":{"en":"Exit fullscreen","es":"Salir de pantalla completa"},

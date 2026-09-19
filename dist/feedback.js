@@ -8,7 +8,7 @@ export function setupFeedback({api,el,button,iconButton,openDialog,toast,refresh
   openDialog(t('Comentário opcional'),box);field.focus();
  });b.setAttribute('aria-pressed',String(saved?.rating===rating));return b;});}
  async function center(){const data=await api('feedback'),box=el('div',{class:'feedback-center'});
-  box.append(el('p',{},t('Inclui avaliações de respostas e falhas de execução.')),el('p',{},t('Segundas-feiras às 9h · São Paulo. A IA só é acionada se houver feedback novo.')),el('p',{class:'muted'},t('Próxima revisão: {date}',{date:new Date(data.nextReviewAt).toLocaleString(locale())})),el('p',{},t('Feedbacks não processados: {count}',{count:data.pendingCount})));
+  box.append(el('p',{},t('Inclui avaliações de respostas e falhas de execução.')),el('p',{},t('Segundas-feiras às 9h · {zone}. A IA só é acionada se houver feedback novo.',{zone:getState().feedback.timezone})),el('p',{class:'muted'},t('Próxima revisão: {date}',{date:new Date(data.nextReviewAt).toLocaleString(locale())})),el('p',{},t('Feedbacks não processados: {count}',{count:data.pendingCount})));
   const enabled=el('input',{type:'checkbox'}),auto=el('input',{type:'checkbox'});enabled.checked=data.settings.enabled;auto.checked=data.settings.autoApply;
   for(const [input,label]of [[enabled,'Revisão semanal ativa'],[auto,'Incorporar automaticamente sugestões pendentes e futuras']]){const row=el('label',{class:'feedback-toggle'});row.append(input,el('span',{},t(label)));box.append(row);}
   box.append(el('p',{class:'muted'},t('Por padrão, você aprova cada alteração. O modo automático adiciona instruções; conflitos exigem revisão manual.')),button(t('Salvar preferências'),async()=>{await api('feedback/settings',{enabled:enabled.checked,autoApply:auto.checked});await refresh();await center();toast('Preferências salvas.');}),button(t('Revisar agora'),async()=>{const r=await api('feedback/review',{});await refresh();await center();toast(r.started?'Revisão iniciada.':r.reason==='running'?'Revisão em andamento.':'Nenhum feedback novo. Nenhuma IA foi acionada.');}));
@@ -20,6 +20,6 @@ export function setupFeedback({api,el,button,iconButton,openDialog,toast,refresh
   if(data.reviews.length){const history=el('details');history.append(el('summary',{},t('Histórico de revisões')));for(const r of [...data.reviews].reverse()){history.append(el('p',{},new Date(r.at).toLocaleString(locale())+' · '+t(r.status==='completed'?'Concluída':'Revisão incompleta')));for(const d of r.dismissals||[])history.append(el('p',{class:'muted'},d.reason));}box.append(history);}
   openDialog(t('Feedbacks e melhorias'),box);
  }
- function routine(){const card=el('section',{class:'card'});card.append(el('h3',{},t('Revisão de feedbacks')),el('p',{},t('Segundas-feiras às 9h · São Paulo. A IA só é acionada se houver feedback novo.')),button(t('Feedbacks e melhorias'),center));return card;}
+ function routine(){const card=el('section',{class:'card'});card.append(el('h3',{},t('Revisão de feedbacks')),el('p',{},t('Segundas-feiras às 9h · {zone}. A IA só é acionada se houver feedback novo.',{zone:getState().feedback.timezone})),button(t('Feedbacks e melhorias'),center));return card;}
  return {actions,center,routine};
 }

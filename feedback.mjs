@@ -1,16 +1,18 @@
+import {detectedTimezone,legacyTimezone} from './dist/timezone.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import {randomUUID,createHash} from 'node:crypto';
 const digest=x=>createHash('sha256').update(x).digest('hex');
 const text=(x,max)=>{if(typeof x!=='string'||!x.trim()||x.length>max)throw Error('Texto de feedback inválido.');return x.trim();};
-export function nextFeedbackReview(after=Date.now()){
- const fmt=new Intl.DateTimeFormat('en-US',{timeZone:'America/Sao_Paulo',weekday:'short',hour:'2-digit',hourCycle:'h23'});
- for(let t=Math.floor(after/3600000)*3600000+3600000;t<after+8*86400000;t+=3600000){const parts=Object.fromEntries(fmt.formatToParts(t).map(p=>[p.type,p.value]));if(parts.weekday==='Mon'&&parts.hour==='09')return new Date(t).toISOString();}
+export function nextFeedbackReview(after=Date.now(),timezone=legacyTimezone){
+ const fmt=new Intl.DateTimeFormat('en-US',{timeZone:timezone,weekday:'short',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
+ for(let t=Math.floor(after/60000)*60000+60000;t<after+8*86400000;t+=60000){const parts=Object.fromEntries(fmt.formatToParts(t).map(p=>[p.type,p.value]));if(parts.weekday==='Mon'&&parts.hour==='09'&&parts.minute==='00')return new Date(t).toISOString();}
  throw Error('Invalid weekly schedule');
 }
 export function createFeedback({root,state,catalog,manage,enqueue,persist=()=>{},failureEntries=()=>[],now=Date.now}){
  const file=path.join(root,'.runtime/feedback.json');
- const data=fs.existsSync(file)?JSON.parse(fs.readFileSync(file,'utf8')):{version:1,settings:{autoApply:false,enabled:true},nextReviewAt:nextFeedbackReview(now()),feedback:[],suggestions:[],reviews:[],batch:null};
+ const data=fs.existsSync(file)?JSON.parse(fs.readFileSync(file,'utf8')):{version:1,timezone:state.timezone||detectedTimezone(),settings:{autoApply:false,enabled:true},nextReviewAt:nextFeedbackReview(now(),state.timezone||detectedTimezone()),feedback:[],suggestions:[],reviews:[],batch:null};
+ data.timezone??=legacyTimezone;
  const save=()=>{fs.mkdirSync(path.dirname(file),{recursive:true,mode:0o700});fs.writeFileSync(file+'.tmp',JSON.stringify(data,null,2),{mode:0o600});fs.renameSync(file+'.tmp',file);};
  function install(){
   const gm=catalog.agents.find(a=>a.id==='general-manager');if(!gm)return;
@@ -23,7 +25,7 @@ export function createFeedback({root,state,catalog,manage,enqueue,persist=()=>{}
   save();
  }
  function syncFailures(){let changed=false;for(const e of failureEntries()){if(e.external||e.selfReview||!e.resolved&&!e.terminal||data.feedback.some(f=>f.sourceId===e.id))continue;data.feedback.push({id:randomUUID(),sourceId:e.id,source:'execution',jobId:e.jobId,agentId:e.agentId,rating:-1,comment:'Falha de execução: '+e.kind,request:e.request,response:'',error:e.error,model:e.model,effort:e.effort,attempt:e.attempt,resolved:!!e.resolved,finalModel:e.finalModel,finalEffort:e.finalEffort,retryStop:e.retryStop,possibleSideEffects:e.possibleSideEffects,revision:1,createdAt:e.at,updatedAt:e.at});changed=true;}if(changed)save();}
- function publicState(){syncFailures();return {settings:data.settings,nextReviewAt:data.nextReviewAt,pendingCount:data.feedback.filter(f=>!f.processedAt).length,batch:data.batch?{jobId:data.batch.jobId,count:data.batch.items.length}:null,ratings:Object.fromEntries(data.feedback.filter(f=>f.messageId).map(f=>[f.messageId,{rating:f.rating,comment:f.comment}])),suggestions:data.suggestions.slice(-200),reviews:data.reviews.slice(-30)};}
+ function publicState(){syncFailures();return {timezone:data.timezone,settings:data.settings,nextReviewAt:data.nextReviewAt,pendingCount:data.feedback.filter(f=>!f.processedAt).length,batch:data.batch?{jobId:data.batch.jobId,count:data.batch.items.length}:null,ratings:Object.fromEntries(data.feedback.filter(f=>f.messageId).map(f=>[f.messageId,{rating:f.rating,comment:f.comment}])),suggestions:data.suggestions.slice(-200),reviews:data.reviews.slice(-30)};}
  function rate(b){
   const m=state.messages.find(m=>m.id===b.messageId),job=state.jobs.find(j=>j.id===m?.jobId);
   if(!m||m.role!=='assistant'||m.streaming||job?.a2a)throw Error('Resposta indisponível para feedback.');
@@ -71,7 +73,7 @@ export function createFeedback({root,state,catalog,manage,enqueue,persist=()=>{}
   data.suggestions.push(...proposals);for(const f of data.feedback)if(covered.has(f.id))f.processedAt=new Date(now()).toISOString();
   data.reviews.push({at:new Date(now()).toISOString(),status:'completed',count:batch.items.length,suggestionIds:proposals.map(s=>s.id),dismissals});data.batch=null;save();applyReady();return {saved:true,suggestions:proposals.length,dismissed:dismissals.length};
  }
- function tick(){syncFailures();reconcile();applyReady();if(!data.settings.enabled||now()<Date.parse(data.nextReviewAt))return;data.nextReviewAt=nextFeedbackReview(now());save();startReview();}
+ function tick(){syncFailures();reconcile();applyReady();if(!data.settings.enabled||now()<Date.parse(data.nextReviewAt))return;data.nextReviewAt=nextFeedbackReview(now(),data.timezone);save();startReview();}
  install();return {rate,settings,decide,review,startReview,tick,publicState,detail:id=>{const s=data.suggestions.find(s=>s.id===id);if(!s)throw Error('Sugestão não encontrada.');const a=catalog.agents.find(a=>a.id===s.agentId);return {...s,current:a?.description||'',currentHash:digest(a?.description||'')};}};
 }
 export const feedbackTool={type:'function',name:'team_feedback_review',description:'Lê ou envia o lote de revisão de feedbacks reservado a esta tarefa. action read retorna batchId, feedback e instruções atuais. action submit exige sugestões (agentId, feedbackIds, title, rationale, instruction) e dismissals (feedbackId, reason), cobrindo todo o lote. Não aplica instruções diretamente.',inputSchema:{type:'object',properties:{action:{type:'string',enum:['read','submit']},batchId:{type:'string'},suggestions:{type:'array',items:{type:'object',properties:{agentId:{type:'string'},feedbackIds:{type:'array',items:{type:'string'}},title:{type:'string'},rationale:{type:'string'},instruction:{type:'string'}},required:['agentId','feedbackIds','title','rationale','instruction'],additionalProperties:false}},dismissals:{type:'array',items:{type:'object',properties:{feedbackId:{type:'string'},reason:{type:'string'}},required:['feedbackId','reason'],additionalProperties:false}}},required:['action'],additionalProperties:false}};

@@ -217,3 +217,7 @@ The implementation uses the Codex App Server's per-turn `model` and `effort` set
 ### One-time routines
 
 In an agent’s Routines tab, edit a routine and choose **Uma única vez** to select a date and time in São Paulo. Activate the routine when ready. A one-time schedule is disabled when its task is queued; it does not repeat, including after a restart. If the Mac is offline at the scheduled time, the task is queued when the service becomes available again. Pausing prevents dispatch without interrupting an existing task. Use **Reagendar** to choose a new future date and activate again. Agents can also set `schedule: {kind: "once", at: "2027-01-20T09:00:00-03:00"}` through `team_update_routine`. Recurring schedules and the native feedback review keep their existing behavior.
+
+### Automatic scheduling timezone
+
+Each private installation detects its owner’s device timezone on connection, with the Mac timezone as fallback. New or edited schedules save that IANA timezone; existing schedules retain their timezone when connecting from another device or while traveling. Imported legacy schedules keep America/Sao_Paulo until their schedule is edited. The routine editor shows the detected timezone and any difference from the saved schedule. One-time dates are converted to an absolute instant using the timezone’s daylight saving rules. Nonexistent local times are rejected; a repeated hour uses its first occurrence.
