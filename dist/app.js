@@ -1,3 +1,4 @@
+import {setupBrowserClipboard} from './browser-clipboard.mjs';
 import {createTabMemory} from './navigation.mjs';
 import {routineEditor} from './routine-editor.mjs';
 import {describeSchedule} from './schedule.mjs';
@@ -190,7 +191,7 @@ $('#latest').onclick=()=>$('#messages').scrollTo({top:$('#messages').scrollHeigh
 if(window.visualViewport){const fit=()=>{if(matchMedia('(max-width:760px)').matches)document.documentElement.style.setProperty('--app-height',window.visualViewport.height+'px');else document.documentElement.style.removeProperty('--app-height');};window.visualViewport.addEventListener('resize',fit);fit();}
 let browserTimer=null;
 function computerPanel(){const box=$('#computer');if(box.childElementCount)return;box.append(el('h2',{},t('Navegador da equipe')),el('p',{class:'intro'},t('Uma sessão separada no Mac, compartilhada com os agentes. Entre nos sites por aqui. Este ambiente é um navegador, não uma máquina virtual completa.')));
- const toolbar=el('form',{class:'browser-toolbar'}),url=el('input',{type:'url',placeholder:'https://...', 'aria-label':t('Endereço do navegador')}),status=el('p',{class:'muted browser-error',role:'status'});const screen=el('img',{class:'browser-screen',alt:t('Tela do navegador da equipe'),tabindex:'0'});let polling=false,activeTargetId=null,tabsKey='',manual=false;status.hidden=true;
+ const toolbar=el('form',{class:'browser-toolbar'}),url=el('input',{type:'url',placeholder:'https://...', 'aria-label':t('Endereço do navegador')}),status=el('p',{class:'muted browser-error',role:'status'});const screen=el('img',{class:'browser-screen',alt:t('Tela do navegador da equipe'),tabindex:'0',draggable:'false'});let polling=false,activeTargetId=null,tabsKey='',manual=false;status.hidden=true;
  const controlToggle=button('',async()=>{controlToggle.disabled=true;try{await act({action:manual?'release':'takeover'});manual=!manual;paintControl();await capture();}finally{controlToggle.disabled=false;}},'browser-control-toggle');controlToggle.setAttribute('role','switch');controlToggle.append(icon('robot'),icon('human'));
  function paintControl(){controlToggle.setAttribute('aria-checked',String(manual));controlToggle.setAttribute('aria-label',t('Controle humano do navegador'));controlToggle.title=t(manual?'Você controla · toque para liberar aos agentes':'Agentes controlam · toque para assumir');}paintControl();
  function showBrowserError(message=''){status.textContent=message;status.hidden=!message;}
@@ -201,7 +202,13 @@ function computerPanel(){const box=$('#computer');if(box.childElementCount)retur
  toolbar.append(iconButton('Voltar','back',async()=>{await act({action:'back'});await capture();}),url,iconButton('Ir','handoff',async()=>{await act({action:'navigate',url:url.value});await capture();}));toolbar.onsubmit=async e=>{e.preventDefault();try{await act({action:'navigate',url:url.value});await capture();}catch(e){toast(e.message);}};
  const screenWrap=el('div',{class:'browser-viewport'});screenWrap.append(screen);const controls=el('div',{class:'actions'});controls.append(iconButton('Ampliar / reduzir tela','expand',()=>screenWrap.classList.toggle('zoomed')),controlToggle,iconButton('Recarregar','reload',async()=>{await act({action:'reload'});await capture();}));
  let ignoreClickUntil=0;screen.onclick=async e=>{if(Date.now()<ignoreClickUntil)return;const r=screen.getBoundingClientRect();try{await act({action:'click',x:(e.clientX-r.left)*1280/r.width,y:(e.clientY-r.top)*800/r.height});await capture();screen.focus();}catch(e){toast(e.message);}};
- screen.onkeydown=async e=>{if(['Enter','Tab','Backspace','Escape','ArrowDown','ArrowUp','ArrowLeft','ArrowRight','Delete'].includes(e.key)){e.preventDefault();await act({action:'key',key:e.key});}else if(e.key.length===1&&!e.ctrlKey&&!e.metaKey){e.preventDefault();await act({action:'type',text:e.key});}};
+ screen.onkeydown=async e=>{if(['Enter','Tab','Backspace','Escape','ArrowDown','ArrowUp','ArrowLeft','ArrowRight','Delete'].includes(e.key)){e.preventDefault();await act({action:'key',key:e.key,shift:e.shiftKey});}else if(e.key.length===1&&!e.ctrlKey&&!e.metaKey){e.preventDefault();await act({action:'type',text:e.key});}};
+ let dragStart=null;
+ screen.addEventListener('pointerdown',e=>{if(e.pointerType!=='mouse'||e.button!==0)return;const r=screen.getBoundingClientRect();dragStart={x:(e.clientX-r.left)*1280/r.width,y:(e.clientY-r.top)*800/r.height,clientX:e.clientX,clientY:e.clientY};screen.setPointerCapture(e.pointerId);});
+ screen.addEventListener('pointerup',async e=>{const start=dragStart;dragStart=null;if(!start||Math.hypot(e.clientX-start.clientX,e.clientY-start.clientY)<5)return;ignoreClickUntil=Date.now()+600;const r=screen.getBoundingClientRect();try{await act({action:'drag',x:start.x,y:start.y,toX:(e.clientX-r.left)*1280/r.width,toY:(e.clientY-r.top)*800/r.height});await capture();screen.focus();}catch(error){toast(error.message);}});
+ screen.addEventListener('pointercancel',()=>dragStart=null);
+ const clipboardPanel=setupBrowserClipboard({screen,act,capture,el,button,t,toast});
+ box.append(clipboardPanel);
  let gesture=null,scrollPending={deltaX:0,deltaY:0,x:640,y:400},scrollBusy=false;
  async function flushScroll(){if(scrollBusy)return;scrollBusy=true;try{while(scrollPending.deltaX||scrollPending.deltaY){const data={...scrollPending};scrollPending.deltaX=scrollPending.deltaY=0;await act({action:'scroll',...data});}await capture();}catch(e){showBrowserError(t(e.message));}finally{scrollBusy=false;}}
  const center=touches=>({x:(touches[0].clientX+touches[1].clientX)/2,y:(touches[0].clientY+touches[1].clientY)/2});

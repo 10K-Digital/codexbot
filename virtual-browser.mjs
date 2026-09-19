@@ -1,5 +1,7 @@
+import {macClipboard,clipboardActions,browserClipboardAction,validateClipboardText} from './browser-clipboard.mjs';
 import fs from 'node:fs';import path from 'node:path';import {spawn} from 'node:child_process';
 export function virtualBrowser(directory){
+ const clipboard=macClipboard();
  let child,socket,starting,seq=0,manualUntil=0,lastURL='',navigationError=null,mainFrame=null;const requests=new Map();let port,activeId=null,known=new Set(),pages=[],queue=Promise.resolve();const pageState=new Map(),returnTo=new Map();
  async function rpc(method,params={}){if(!socket||socket.readyState!==1)throw Error('Navegador desconectado.');return new Promise((resolve,reject)=>{const id=++seq,timer=setTimeout(()=>{requests.delete(id);reject(Error('O navegador demorou para responder.'));},15000);requests.set(id,{resolve,reject,timer});socket.send(JSON.stringify({id,method,params}));});}
  async function start(){if(child&&child.exitCode===null&&port){await syncPages();return;}if(starting)return starting;starting=(async()=>{
@@ -20,17 +22,19 @@ export function virtualBrowser(directory){
  }
  async function syncPages(followNew=true){const current=await listPages();if(!current.length)throw Error('Nenhuma aba disponível.');const opened=current.filter(p=>!known.has(p.id));for(const p of opened)returnTo.set(p.id,activeId);known=new Set(current.map(p=>p.id));pages=current;const selected=(followNew&&opened.length?opened[0]:null)||current.find(p=>p.id===activeId)||current.find(p=>p.id===returnTo.get(activeId))||current[0];if(selected.id!==activeId||socket?.readyState!==1)await attach(selected);}
  async function action(input,actor='user'){
- const op=input.action;if(op==='release'){manualUntil=0;return {ok:true};}if(op==='takeover'){manualUntil=Number.MAX_SAFE_INTEGER;await start();return {ok:true};}
+ const op=input.action;if(clipboardActions.has(op)&&actor!=='user')throw Error('Clipboard disponível apenas por ação do usuário no painel.');if(['clipboardWrite','clipboardPaste'].includes(op))validateClipboardText(input.text);if(op==='release'){manualUntil=0;return {ok:true};}if(op==='takeover'){manualUntil=Number.MAX_SAFE_INTEGER;await start();return {ok:true};}
  if(actor==='agent'&&manualUntil>Date.now())throw Error('O usuário está controlando o navegador. Aguarde a liberação no painel.');
  if(actor==='user'&&!['screenshot','status'].includes(op))manualUntil=Number.MAX_SAFE_INTEGER;
  await start();await syncPages(op==='screenshot'||op==='status');
  if(op==='switchTab'){const page=pages.find(p=>p.id===input.targetId);if(!page)throw Error('A aba foi fechada.');await attach(page);await rpc('Page.bringToFront');}
  else if(op==='closeTab'){if(pages.length<2)throw Error('Mantenha pelo menos uma aba aberta.');if(!pages.some(p=>p.id===input.targetId))throw Error('A aba foi fechada.');await fetch(`http://127.0.0.1:${port}/json/close/${encodeURIComponent(input.targetId)}`,{signal:AbortSignal.timeout(5000)});await syncPages(false);}
  else if(input.targetId&&input.targetId!==activeId)throw Error('A aba mudou. Aguarde a tela atualizar antes de interagir.');
+ if(clipboardActions.has(op))return browserClipboardAction(input,{actor,rpc,clipboard});
  if(op==='navigate'){const url=new URL(input.url);if(!['http:','https:'].includes(url.protocol)||url.username||url.password)throw Error('Use um endereço HTTP ou HTTPS.');lastURL=url.href;navigationError=null;const result=await rpc('Page.navigate',{url:url.href});if(result.errorText)navigationError=result.errorText;}
  else if(op==='click'){const x=Math.max(0,Math.min(Number(input.x)||0,1279)),y=Math.max(0,Math.min(Number(input.y)||0,799));await rpc('Input.dispatchMouseEvent',{type:'mousePressed',x,y,button:'left',clickCount:1});await rpc('Input.dispatchMouseEvent',{type:'mouseReleased',x,y,button:'left',clickCount:1});}
+ else if(op==='drag'){const point=(x,y)=>({x:Math.max(0,Math.min(Number(x)||0,1279)),y:Math.max(0,Math.min(Number(y)||0,799))});const a=point(input.x,input.y),b=point(input.toX,input.toY);await rpc('Input.dispatchMouseEvent',{type:'mousePressed',...a,button:'left',clickCount:1});try{for(let i=1;i<=10;i++)await rpc('Input.dispatchMouseEvent',{type:'mouseMoved',x:a.x+(b.x-a.x)*i/10,y:a.y+(b.y-a.y)*i/10,button:'left',buttons:1});}finally{await rpc('Input.dispatchMouseEvent',{type:'mouseReleased',...b,button:'left',clickCount:1});}}
  else if(op==='type'){if(typeof input.text!=='string'||input.text.length>20000)throw Error('Texto inválido.');await rpc('Input.insertText',{text:input.text});}
- else if(op==='key'){const keys={Enter:13,Tab:9,Backspace:8,Escape:27,ArrowDown:40,ArrowUp:38,ArrowLeft:37,ArrowRight:39,Delete:46};if(!keys[input.key])throw Error('Tecla não suportada.');await rpc('Input.dispatchKeyEvent',{type:'keyDown',key:input.key,windowsVirtualKeyCode:keys[input.key]});await rpc('Input.dispatchKeyEvent',{type:'keyUp',key:input.key,windowsVirtualKeyCode:keys[input.key]});}
+ else if(op==='key'){const keys={Enter:13,Tab:9,Backspace:8,Escape:27,ArrowDown:40,ArrowUp:38,ArrowLeft:37,ArrowRight:39,Delete:46};if(!keys[input.key])throw Error('Tecla não suportada.');await rpc('Input.dispatchKeyEvent',{type:'keyDown',key:input.key,modifiers:input.shift===true?8:0,windowsVirtualKeyCode:keys[input.key]});await rpc('Input.dispatchKeyEvent',{type:'keyUp',key:input.key,windowsVirtualKeyCode:keys[input.key]});}
  else if(op==='scroll')await rpc('Input.dispatchMouseEvent',{type:'mouseWheel',x:Math.max(0,Math.min(Number(input.x)||640,1279)),y:Math.max(0,Math.min(Number(input.y)||400,799)),deltaX:Math.max(-1600,Math.min(Number(input.deltaX)||0,1600)),deltaY:Math.max(-1600,Math.min(Number(input.deltaY)||0,1600))});
  else if(op==='back'){const h=await rpc('Page.getNavigationHistory');if(h.currentIndex>0)await rpc('Page.navigateToHistoryEntry',{entryId:h.entries[h.currentIndex-1].id});}
  else if(op==='reload'){navigationError=null;if(lastURL)await rpc('Page.navigate',{url:lastURL});else await rpc('Page.reload');}
