@@ -22,7 +22,7 @@ if(fs.existsSync(target)){
  priorEnvironment=prior.EnvironmentVariables||{};
 }
 fs.mkdirSync(root,{recursive:true,mode:0o700});
-for(const name of ['routing.mjs','context.mjs','feedback.mjs','builtin-skills','live-voice.mjs','voice.mjs','scripts','configuration.mjs','server.mjs','smart-cards.mjs','lib.mjs','attachments.mjs','management.mjs','a2a.mjs','a2a-clients.mjs','buzz-acp.mjs','push.mjs','virtual-browser.mjs','package.json','package-lock.json','node_modules','dist'])fs.cpSync(path.join(source,name),path.join(root,name),{recursive:true});
+for(const name of ['routines.mjs','routing.mjs','context.mjs','feedback.mjs','builtin-skills','live-voice.mjs','voice.mjs','scripts','configuration.mjs','server.mjs','smart-cards.mjs','lib.mjs','attachments.mjs','management.mjs','a2a.mjs','a2a-clients.mjs','buzz-acp.mjs','push.mjs','virtual-browser.mjs','package.json','package-lock.json','node_modules','dist'])fs.cpSync(path.join(source,name),path.join(root,name),{recursive:true});
 ensureInstallation(root);writeFrontendConfiguration(root);
 fs.mkdirSync(path.dirname(descriptor),{recursive:true,mode:0o700});fs.writeFileSync(descriptor,JSON.stringify({root,label},null,2),{mode:0o600});
 const catalogPath=path.join(root,'.private/catalog.json');
