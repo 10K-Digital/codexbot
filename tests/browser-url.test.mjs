@@ -16,3 +16,8 @@ test('unsafe schemes, credentials and malformed addresses are rejected before br
   assert.throws(()=>normalizeBrowserURL(input));await assert.rejects(browser.action({action:'navigate',url:input}),/HTTP ou HTTPS/);
  }
 });
+test('viewport resize rejects invalid dimensions and agent access before launch',async()=>{
+ const browser=virtualBrowser('/unused-test-browser');
+ for(const size of [{width:0,height:800},{width:1280,height:-1},{width:99999,height:800},{width:'1280',height:800}])await assert.rejects(browser.action({action:'resize',...size}),/Dimensões/);
+ await assert.rejects(browser.action({action:'resize',width:1280,height:800},'agent'),/Dimensões/);
+});
