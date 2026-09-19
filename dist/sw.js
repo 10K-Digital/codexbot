@@ -1,6 +1,6 @@
 /* Only public application assets are cached. Credentials, files and conversations never enter this cache. */
-const CACHE='equipe-shell-v23';
-const SHELL=['/browser-clipboard.mjs','/navigation.mjs','/schedule.mjs','/routine-editor.mjs','/feedback.js','/live-voice.js','/voice.js','/mascot.svg','/','/app.js','/cards.mjs','/connection.mjs','/pwa.js','/i18n.mjs','/translations.mjs','/style.css','/manifest.webmanifest','/manifest.pt.webmanifest','/manifest.en.webmanifest','/manifest.es.webmanifest','/icon-192.png','/icon-512.png'];
+const CACHE='equipe-shell-v24';
+const SHELL=['/browser-url.mjs','/browser-clipboard.mjs','/navigation.mjs','/schedule.mjs','/routine-editor.mjs','/feedback.js','/live-voice.js','/voice.js','/mascot.svg','/','/app.js','/cards.mjs','/connection.mjs','/pwa.js','/i18n.mjs','/translations.mjs','/style.css','/manifest.webmanifest','/manifest.pt.webmanifest','/manifest.en.webmanifest','/manifest.es.webmanifest','/icon-192.png','/icon-512.png'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL))));
 self.addEventListener('activate',event=>event.waitUntil(Promise.all([caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('equipe-shell-')&&k!==CACHE).map(k=>caches.delete(k)))),self.clients.claim()])));
 self.addEventListener('fetch',event=>{

@@ -1,15 +1,25 @@
+import {browserDebugPort,browserLaunchArgs} from './browser-launch.mjs';
+import {normalizeBrowserURL} from './dist/browser-url.mjs';
 import {macClipboard,clipboardActions,browserClipboardAction,validateClipboardText} from './browser-clipboard.mjs';
-import fs from 'node:fs';import path from 'node:path';import {spawn} from 'node:child_process';
+import fs from 'node:fs';import {spawn} from 'node:child_process';
 export function virtualBrowser(directory){
  const clipboard=macClipboard();
  let child,socket,starting,seq=0,manualUntil=0,lastURL='',navigationError=null,mainFrame=null;const requests=new Map();let port,activeId=null,known=new Set(),pages=[],queue=Promise.resolve();const pageState=new Map(),returnTo=new Map();
  async function rpc(method,params={}){if(!socket||socket.readyState!==1)throw Error('Navegador desconectado.');return new Promise((resolve,reject)=>{const id=++seq,timer=setTimeout(()=>{requests.delete(id);reject(Error('O navegador demorou para responder.'));},15000);requests.set(id,{resolve,reject,timer});socket.send(JSON.stringify({id,method,params}));});}
  async function start(){if(child&&child.exitCode===null&&port){await syncPages();return;}if(starting)return starting;starting=(async()=>{
  const binary='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';if(!fs.existsSync(binary))throw Error('Google Chrome não está instalado.');
- fs.mkdirSync(directory,{recursive:true,mode:0o700});const portFile=path.join(directory,'DevToolsActivePort');fs.rmSync(portFile,{force:true});
- child=spawn(binary,['--start-minimized','--remote-debugging-address=127.0.0.1','--remote-debugging-port=0','--user-data-dir='+directory,'--no-first-run','--no-default-browser-check','--window-size=1280,800','about:blank'],{stdio:'ignore'});
- child.on('error',()=>{});child.on('exit',()=>{socket?.close();socket=null;});
- for(let i=0;i<100;i++){if(child.exitCode!==null)throw Error('O navegador não iniciou.');if(fs.existsSync(portFile)){port=Number(fs.readFileSync(portFile,'utf8').split('\n')[0]);break;}await new Promise(r=>setTimeout(r,100));}if(!port)throw Error('Não foi possível iniciar o navegador.');
+ fs.mkdirSync(directory,{recursive:true,mode:0o700});port=null;
+ const launchPort=await browserDebugPort();let launchError;
+ child=spawn(binary,browserLaunchArgs(directory,launchPort),{stdio:'ignore'});const launched=child;
+ child.on('error',error=>{launchError=error;});child.on('exit',()=>{if(child===launched){socket?.close();socket=null;port=null;}});
+ try{
+  for(let i=0;i<100;i++){
+   if(launchError||child.exitCode!==null||child.signalCode)throw Error('O navegador não iniciou. Feche a janela do navegador da equipe e tente novamente.');
+   try{const response=await fetch(`http://127.0.0.1:${launchPort}/json/version`,{signal:AbortSignal.timeout(300)});if(response.ok&&(await response.json()).webSocketDebuggerUrl){port=launchPort;break;}}catch{}
+   await new Promise(r=>setTimeout(r,100));
+  }
+  if(!port)throw Error('Não foi possível iniciar o navegador.');
+ }catch(error){launched.kill();port=null;throw error;}
  const found=await listPages();const page=found[0];if(!page)throw Error('Nenhuma aba disponível.');known=new Set(found.map(p=>p.id));await attach(page);
  })().finally(()=>starting=null);return starting;}
  async function listPages(){const r=await fetch(`http://127.0.0.1:${port}/json/list`,{signal:AbortSignal.timeout(5000)});if(!r.ok)throw Error('Não foi possível listar as abas.');return (await r.json()).filter(p=>p.type==='page');}
@@ -22,7 +32,7 @@ export function virtualBrowser(directory){
  }
  async function syncPages(followNew=true){const current=await listPages();if(!current.length)throw Error('Nenhuma aba disponível.');const opened=current.filter(p=>!known.has(p.id));for(const p of opened)returnTo.set(p.id,activeId);known=new Set(current.map(p=>p.id));pages=current;const selected=(followNew&&opened.length?opened[0]:null)||current.find(p=>p.id===activeId)||current.find(p=>p.id===returnTo.get(activeId))||current[0];if(selected.id!==activeId||socket?.readyState!==1)await attach(selected);}
  async function action(input,actor='user'){
- const op=input.action;if(clipboardActions.has(op)&&actor!=='user')throw Error('Clipboard disponível apenas por ação do usuário no painel.');if(['clipboardWrite','clipboardPaste'].includes(op))validateClipboardText(input.text);if(op==='release'){manualUntil=0;return {ok:true};}if(op==='takeover'){manualUntil=Number.MAX_SAFE_INTEGER;await start();return {ok:true};}
+ const op=input.action;const navigationURL=op==='navigate'?normalizeBrowserURL(input.url):null;if(clipboardActions.has(op)&&actor!=='user')throw Error('Clipboard disponível apenas por ação do usuário no painel.');if(['clipboardWrite','clipboardPaste'].includes(op))validateClipboardText(input.text);if(op==='release'){manualUntil=0;return {ok:true};}if(op==='takeover'){manualUntil=Number.MAX_SAFE_INTEGER;await start();return {ok:true};}
  if(actor==='agent'&&manualUntil>Date.now())throw Error('O usuário está controlando o navegador. Aguarde a liberação no painel.');
  if(actor==='user'&&!['screenshot','status'].includes(op))manualUntil=Number.MAX_SAFE_INTEGER;
  await start();await syncPages(op==='screenshot'||op==='status');
@@ -30,7 +40,7 @@ export function virtualBrowser(directory){
  else if(op==='closeTab'){if(pages.length<2)throw Error('Mantenha pelo menos uma aba aberta.');if(!pages.some(p=>p.id===input.targetId))throw Error('A aba foi fechada.');await fetch(`http://127.0.0.1:${port}/json/close/${encodeURIComponent(input.targetId)}`,{signal:AbortSignal.timeout(5000)});await syncPages(false);}
  else if(input.targetId&&input.targetId!==activeId)throw Error('A aba mudou. Aguarde a tela atualizar antes de interagir.');
  if(clipboardActions.has(op))return browserClipboardAction(input,{actor,rpc,clipboard});
- if(op==='navigate'){const url=new URL(input.url);if(!['http:','https:'].includes(url.protocol)||url.username||url.password)throw Error('Use um endereço HTTP ou HTTPS.');lastURL=url.href;navigationError=null;const result=await rpc('Page.navigate',{url:url.href});if(result.errorText)navigationError=result.errorText;}
+ if(op==='navigate'){const url=new URL(navigationURL);lastURL=url.href;navigationError=null;const result=await rpc('Page.navigate',{url:url.href});if(result.errorText)navigationError=result.errorText;}
  else if(op==='click'){const x=Math.max(0,Math.min(Number(input.x)||0,1279)),y=Math.max(0,Math.min(Number(input.y)||0,799));await rpc('Input.dispatchMouseEvent',{type:'mousePressed',x,y,button:'left',clickCount:1});await rpc('Input.dispatchMouseEvent',{type:'mouseReleased',x,y,button:'left',clickCount:1});}
  else if(op==='drag'){const point=(x,y)=>({x:Math.max(0,Math.min(Number(x)||0,1279)),y:Math.max(0,Math.min(Number(y)||0,799))});const a=point(input.x,input.y),b=point(input.toX,input.toY);await rpc('Input.dispatchMouseEvent',{type:'mousePressed',...a,button:'left',clickCount:1});try{for(let i=1;i<=10;i++)await rpc('Input.dispatchMouseEvent',{type:'mouseMoved',x:a.x+(b.x-a.x)*i/10,y:a.y+(b.y-a.y)*i/10,button:'left',buttons:1});}finally{await rpc('Input.dispatchMouseEvent',{type:'mouseReleased',...b,button:'left',clickCount:1});}}
  else if(op==='type'){if(typeof input.text!=='string'||input.text.length>20000)throw Error('Texto inválido.');await rpc('Input.insertText',{text:input.text});}

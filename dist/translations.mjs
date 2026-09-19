@@ -1,4 +1,6 @@
 export const messages = {
+"Use um endereço HTTP ou HTTPS válido.":{"en":"Enter a valid HTTP or HTTPS address.","es":"Introduce una dirección HTTP o HTTPS válida."},
+"O navegador não iniciou. Feche a janela do navegador da equipe e tente novamente.":{"en":"The browser did not start. Close the team browser window and try again.","es":"El navegador no se inició. Cierra la ventana del navegador del equipo e inténtalo de nuevo."},
 "Uma única vez":{"en": "One time", "es": "Una sola vez"},
 "Já disparada":{"en": "Already triggered", "es": "Ya ejecutada"},
 "Reagendar":{"en": "Reschedule", "es": "Reprogramar"},
