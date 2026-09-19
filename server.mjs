@@ -57,7 +57,8 @@ function enqueue(agentId,text,{from='user',parentJob=null,depth=0,routineId=null
  if(state.jobs.filter(j=>['queued','running','waiting'].includes(j.status)).length>=40)throw Error('Fila cheia. Aguarde uma execução terminar.');
  if(depth>4)throw Error('Limite de quatro níveis de delegação atingido.');
  const job={id:randomUUID(),agentId,text,from,parentJob,depth,routineId,conversationId,attachmentIds,attachmentOwner,...(a2a?{a2a}:{}),status:'queued',createdAt:timestamp()};state.jobs.push(job);
- if(!suppressUser)message(agentId,from==='user'?'user':'system',text,{jobId:job.id,from,attachments:attachmentIds.map(id=>attachments.publicFile(attachments.get(id)))});persist();void pump();return job;
+ const historyText=routineId?'Executando rotina '+(state.routines.find(r=>r.id===routineId)?.name||from.replace(/^Rotina: /,'')||routineId)+'…':text;
+ if(!suppressUser)message(agentId,from==='user'?'user':'system',historyText,{jobId:job.id,from,attachments:attachmentIds.map(id=>attachments.publicFile(attachments.get(id)))});persist();void pump();return job;
 }
 const failureMemory=createFailureMemory(ROOT);
 for(const job of state.jobs.filter(j=>j.status==='failed').slice(-100))failureMemory.record(job,{terminal:true});
