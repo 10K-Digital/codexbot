@@ -45,6 +45,7 @@ const attachments=createAttachmentStore({directory:path.join(DATA,'uploads'),rec
 const byAgent=new Map(catalog.agents.map(a=>[a.id,a])),threads=new Map(),threadAgent=new Map(),running=new Map(),pending=new Map(),requests=new Map();
 let rpcSeq=0,child,ready=false,account=null,connectionError=null,connectionPromise=null;
 const manage=management({catalog,state,root:ROOT,persist,byAgent,resetAgent:id=>{if(running.has(id))throw Error('Aguarde o agente terminar antes de editá-lo.');for(const key of threads.keys())if(key===id||key.startsWith(id+':'))threads.delete(key);}});
+manage.migrateImportedSkills();
 const timestamp=()=>new Date().toISOString();
 function message(agentId,role,text,extra={}){const job=state.jobs.find(j=>j.id===extra.jobId);const m={id:randomUUID(),agentId,conversationId:job?.conversationId||agentId,role,text,attempt:job?.currentAttempt,createdAt:timestamp(),...extra};state.messages.push(m);persist();return m;}
 function reply(id,result){if(child?.stdin.writable)child.stdin.write(JSON.stringify({id,result})+'\n');}

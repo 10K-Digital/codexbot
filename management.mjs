@@ -1,3 +1,4 @@
+import {isImportedWrapper,inlineImportedInstructions} from './imported-skills.mjs';
 import fs from 'node:fs';import path from 'node:path';import {randomUUID} from 'node:crypto';
 const nativeIds=new Set(['codexbot-feedback-review']);
 export const isNativeSkill=s=>!!s&&(nativeIds.has(s.id)||s.native===true);
@@ -26,7 +27,8 @@ export function management({catalog,state,root,persist,byAgent,resetAgent}){
  }
  function channel(b){const name=text(b.name,80),members=[...new Set(b.members||[])];if(!members.length||members.length>20||members.some(id=>!byAgent.has(id)))throw Error('Selecione entre 1 e 20 agentes válidos.');const existing=b.id?state.channels.find(c=>c.id===b.id):null;if(b.id&&!existing)throw Error('Canal não encontrado.');const c={id:existing?.id||randomUUID(),name,description:String(b.description||'').slice(0,2000),members};if(existing)Object.assign(existing,c);else state.channels.push(c);persist();return c;
  }
- function readSkill(id){const s=catalog.skills.find(s=>s.id===id);if(!s)throw Error('Skill não encontrada.');if(isNativeSkill(s))throw Error('As instruções de skills nativas são gerenciadas pelo sistema.');return {...publicSkill(s),instructions:fs.readFileSync(s.path,'utf8'),source:fs.readFileSync(path.join(path.dirname(s.path),'source.md'),'utf8')};}
+ function migrateImportedSkills(){let count=0;for(const s of [...catalog.skills]){if(isNativeSkill(s))continue;const instructions=fs.readFileSync(s.path,'utf8');if(!isImportedWrapper(instructions))continue;const source=fs.readFileSync(path.join(path.dirname(s.path),'source.md'),'utf8');skill({...s,instructions:inlineImportedInstructions(instructions,source)});count++;}return count;}
+ function readSkill(id){const s=catalog.skills.find(s=>s.id===id);if(!s)throw Error('Skill não encontrada.');if(isNativeSkill(s))throw Error('As instruções de skills nativas são gerenciadas pelo sistema.');const instructions=fs.readFileSync(s.path,'utf8');return {...publicSkill(s),instructions:isImportedWrapper(instructions)?inlineImportedInstructions(instructions,fs.readFileSync(path.join(path.dirname(s.path),'source.md'),'utf8')):instructions};}
  function installNativeSkill(b){const id=b.id||slug(b.name);if(!nativeIds.has(id))throw Error('Skill nativa desconhecida.');return skill(b,true);}
- return {agent,skill,channel,readSkill,installNativeSkill};
+ return {agent,skill,channel,readSkill,installNativeSkill,migrateImportedSkills};
 }
