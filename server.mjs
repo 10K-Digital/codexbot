@@ -18,7 +18,7 @@ import {sameSecret,originAllowed,safeText,validCron,scheduleSlot,remoteAuthorize
 
 import {virtualBrowser} from './virtual-browser.mjs';
 import {createPush} from './push.mjs';
-import {management,resolveTargets} from './management.mjs';
+import {management,resolveTargets,isNativeSkill,publicSkill} from './management.mjs';
 import {createAttachmentStore} from './attachments.mjs';
 import {createA2A,a2aRoute} from './a2a.mjs';
 const ROOT=path.dirname(fileURLToPath(import.meta.url)),DATA=path.join(ROOT,'.runtime');
@@ -185,7 +185,7 @@ function decide(id,input){const r=pending.get(id);if(!r)throw Error('Pedido expi
  else result={decision:input.approved?'accept':'decline'};
  reply(r.rpcId,result);pending.delete(id);const j=running.get(r.agentId);if(j)j.status='running';message(r.agentId,'system',input.approved?'Ação aprovada pelo usuário.':'Resposta registrada / ação não aprovada.');persist();
 }
-function snapshot(){return {messageThreads:state.messageThreads,feedback:feedback.publicState(),channels:state.channels,agents:catalog.agents,skills:catalog.skills.map(({path,...s})=>s),routines:state.routines,jobs:state.jobs.slice(-300),messages:state.messages.slice(-1500),exchanges:state.exchanges.slice(-200),approvals:[...pending.values()].map(({rpcId,...r})=>r),connection:{ready,account,error:connectionError},site:SITE,remote:REMOTE};}
+function snapshot(){return {messageThreads:state.messageThreads,feedback:feedback.publicState(),channels:state.channels,agents:catalog.agents,skills:catalog.skills.map(publicSkill),routines:state.routines,jobs:state.jobs.slice(-300),messages:state.messages.slice(-1500),exchanges:state.exchanges.slice(-200),approvals:[...pending.values()].map(({rpcId,...r})=>r),connection:{ready,account,error:connectionError},site:SITE,remote:REMOTE};}
 const voice=createVoice({root:ROOT});
 const liveVoice=createLiveVoice({rpc,begin:async agentId=>{
  if(!byAgent.has(agentId))throw Error('Selecione um agente para conversar por voz.');
@@ -251,7 +251,7 @@ const server=http.createServer(async(req,res)=>{
    if(req.method==='POST'&&url.pathname==='/api/voice/transcribe')return send(200,await voice.transcribe(req,url.searchParams.get('lang')));
    if(req.method==='POST'&&url.pathname==='/api/uploads')return send(201,await attachments.upload(req,url.searchParams.get('name')));
    if(req.method==='GET'&&url.pathname==='/api/push/config')return send(200,{publicKey:push.publicKey,...push.status()});
-   if(req.method==='GET'&&url.pathname==='/api/skill'){const s=catalog.skills.find(s=>s.id===url.searchParams.get('id'));if(!s)return send(404,{error:'Skill não encontrada'});return send(200,{...s,path:undefined,instructions:fs.readFileSync(s.path,'utf8'),source:fs.readFileSync(path.join(path.dirname(s.path),'source.md'),'utf8')});}
+   if(req.method==='GET'&&url.pathname==='/api/skill'){const s=catalog.skills.find(s=>s.id===url.searchParams.get('id'));if(!s)return send(404,{error:'Skill não encontrada'});if(isNativeSkill(s))return send(403,{error:'As instruções de skills nativas são gerenciadas pelo sistema.'});return send(200,manage.readSkill(s.id));}
    if(req.method!=='POST')return send(405,{error:'Método não permitido'});const b=await body(req);
    if(url.pathname==='/api/feedback/rate')return send(200,feedback.rate(b));
    if(url.pathname==='/api/feedback/settings')return send(200,feedback.settings(b));

@@ -16,10 +16,10 @@ export function createFeedback({root,state,catalog,manage,enqueue,persist=()=>{}
   const gm=catalog.agents.find(a=>a.id==='general-manager');if(!gm)return;
   const id='codexbot-feedback-review',source=fs.readFileSync(path.join(root,'builtin-skills/feedback-review/SKILL.md'),'utf8');
   if(!catalog.skills.some(s=>s.id===id)){
-   const created=manage.skill({name:'Codexbot Feedback Review',description:'Revisa feedbacks e propõe melhorias nas instruções dos agentes.',instructions:source});
+   const created=manage.installNativeSkill({name:'Codexbot Feedback Review',description:'Revisa feedbacks e propõe melhorias nas instruções dos agentes.',instructions:source});
    if(!gm.skills.includes(created.id))manage.agent({...gm,skills:[...gm.skills,created.id]});
   }else if(!gm.skills.includes(id))manage.agent({...gm,skills:[...gm.skills,id]});
-  const installed=catalog.skills.find(s=>s.id===id);if(installed?.path&&fs.existsSync(installed.path)){const current=fs.readFileSync(installed.path,'utf8');if(!current.includes('## Failure evidence'))manage.skill({...installed,instructions:current+'\n\n## Failure evidence'+source.split('## Failure evidence')[1]});}
+  const installed=catalog.skills.find(s=>s.id===id);if(installed?.path&&fs.existsSync(installed.path)){const current=fs.readFileSync(installed.path,'utf8');if(!current.includes('## Failure evidence'))manage.installNativeSkill({...installed,instructions:current+'\n\n## Failure evidence'+source.split('## Failure evidence')[1]});}
   save();
  }
  function syncFailures(){let changed=false;for(const e of failureEntries()){if(e.external||e.selfReview||!e.resolved&&!e.terminal||data.feedback.some(f=>f.sourceId===e.id))continue;data.feedback.push({id:randomUUID(),sourceId:e.id,source:'execution',jobId:e.jobId,agentId:e.agentId,rating:-1,comment:'Falha de execução: '+e.kind,request:e.request,response:'',error:e.error,model:e.model,effort:e.effort,attempt:e.attempt,resolved:!!e.resolved,finalModel:e.finalModel,finalEffort:e.finalEffort,retryStop:e.retryStop,possibleSideEffects:e.possibleSideEffects,revision:1,createdAt:e.at,updatedAt:e.at});changed=true;}if(changed)save();}
