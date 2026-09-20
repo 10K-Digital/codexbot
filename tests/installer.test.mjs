@@ -52,3 +52,11 @@ test('bootstrap help is available without installation and unknown flags fail',(
  const help=spawnSync('/bin/bash',[script,'--help'],{encoding:'utf8'});assert.equal(help.status,0);assert.match(help.stdout,/--check/);
  const bad=spawnSync('/bin/bash',[script,'--unknown'],{encoding:'utf8'});assert.notEqual(bad.status,0);assert.match(bad.stderr,/Unknown option/);
 });
+
+test('installer includes every direct local server dependency',()=>{
+ const source=fs.readFileSync(new URL('../server.mjs',import.meta.url),'utf8');
+ const installer=fs.readFileSync(new URL('../install-service.mjs',import.meta.url),'utf8');
+ const copyList=installer.match(/for\(const name of \[([^\]]+)\]\)fs\.cpSync/)[1];
+ const installed=new Set([...copyList.matchAll(/'([^']+)'/g)].map(m=>m[1]));
+ for(const match of source.matchAll(/from '\.\/([^']+)'/g))assert(installed.has(match[1])||installed.has(match[1].split('/')[0]),'Installer omits '+match[1]);
+});
