@@ -171,3 +171,5 @@ body.browser-fullscreen-open{overflow:hidden}
 .page-hidden .character-art{animation-play-state:paused!important}
 .unread-count{display:inline-flex;align-items:center;gap:4px;border-radius:12px;padding:0 6px}.unread-count::before{content:'';width:5px;height:5px;background:currentColor;border-radius:50%;flex-shrink:0}
 @media(prefers-reduced-motion:reduce){.character-avatar.working .character-art{animation:none!important}}
+
+.approval .actions{align-items:center}.approval .actions>a{display:inline-flex;text-decoration:none}.approval select{width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--fg)}.approval label{display:grid;gap:8px}.approval input:not([type=checkbox]){width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--fg)}.approval .form-error:empty{display:none}
