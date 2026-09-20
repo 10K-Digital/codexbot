@@ -1,4 +1,9 @@
 export const messages = {
+"Carregando prévia…":{"en": "Loading preview…", "es": "Cargando vista previa…"},
+"Este formato não tem prévia. Baixe o arquivo para abri-lo.":{"en": "This format has no preview. Download the file to open it.", "es": "Este formato no tiene vista previa. Descarga el archivo para abrirlo."},
+"Baixar arquivo":{"en": "Download file", "es": "Descargar archivo"},
+"Não foi possível abrir este arquivo. Ele pode ter sido movido, estar fora do espaço do agente ou exceder o limite de 8 MB. Peça ao agente para anexá-lo novamente.":{"en": "Could not open this file. It may have moved, be outside the agent workspace, or exceed the 8 MB limit. Ask the agent to attach it again.", "es": "No se pudo abrir el archivo. Puede haberse movido, estar fuera del espacio del agente o superar el límite de 8 MB. Pide al agente que lo adjunte de nuevo."},
+
 "Reconectar {name}":{"en": "Reconnect {name}", "es": "Reconectar {name}"},
 "Concluir etapa no conector":{"en": "Complete the connector step", "es": "Completar el paso del conector"},
 "O acesso ao {name} precisa ser reconectado. A tarefa está pausada até você concluir esta etapa.":{"en": "Access to {name} needs to be reconnected. The task is paused until you complete this step.", "es": "Es necesario volver a conectar {name}. La tarea está pausada hasta que completes este paso."},
