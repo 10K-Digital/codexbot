@@ -1,3 +1,4 @@
+import {detectedTimezone,localDateInput} from './timezone.mjs';
 const days=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 const integer=(n,min,max)=>Number.isInteger(n)&&n>=min&&n<=max;
 export function scheduleToCron(s){
@@ -32,5 +33,5 @@ export function onceDate(value,{future=false,now=Date.now()}={}){
  return date.toISOString();
 }
 export function routineSchedule(r){return r.schedule?.kind==='once'?r.schedule:cronToSchedule(r.cron);}
-export function describeRoutine(r,t=x=>x){return r.schedule?.kind==='once'?t('Uma única vez')+' · '+new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',dateStyle:'short',timeStyle:'short'}).format(new Date(r.schedule.at)):describeSchedule(r.cron,t);}
-export function saoPauloInput(at){const parts=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date(at)).map(p=>[p.type,p.value]));return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;}
+export function describeRoutine(r,t=x=>x){return r.schedule?.kind==='once'?t('Uma única vez')+' · '+new Intl.DateTimeFormat('pt-BR',{timeZone:r.timezone||detectedTimezone(),dateStyle:'short',timeStyle:'short'}).format(new Date(r.schedule.at)):describeSchedule(r.cron,t);}
+export const saoPauloInput=at=>localDateInput(at,'America/Sao_Paulo');

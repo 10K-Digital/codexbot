@@ -12,6 +12,6 @@ test('deleting a shared skill removes all assignments and preserves a private re
 });
 test('deleting a routine prevents future dispatch while preserving queued work and history',()=>{
  const routine={id:'r',agentId:'a',name:'Routine',prompt:'Do work',cron:'* * * * *',enabled:true};const state={routines:[routine],jobs:[{id:'j',routineId:'r',status:'queued'}],messages:[{text:'history'}],scheduleSlots:{r:'previous'}};let writes=0;
- const api=createRoutines({state,persist(){writes++;},enqueue(){throw Error('Deleted routine dispatched');}});api.remove({id:'r'});api.tick();assert.deepEqual(api.list(),[]);assert.equal(state.jobs[0].status,'queued');assert.equal(state.messages[0].text,'history');assert.equal(state.scheduleSlots.r,undefined);assert.equal(state.deletedRoutines[0].prompt,'Do work');assert.equal(writes,1);
+ const api=createRoutines({state,persist(){writes++;},enqueue(){throw Error('Deleted routine dispatched');}});writes=0;api.remove({id:'r'});api.tick();assert.deepEqual(api.list(),[]);assert.equal(state.jobs[0].status,'queued');assert.equal(state.messages[0].text,'history');assert.equal(state.scheduleSlots.r,undefined);assert.equal(state.deletedRoutines[0].prompt,'Do work');assert.equal(writes,1);
  const restored=createRoutines({state:JSON.parse(JSON.stringify(state)),persist(){}});assert.deepEqual(restored.list(),[]);assert.throws(()=>api.remove({id:'missing'}));assert.throws(()=>api.remove({id:'codexbot-feedback-review'}),/nativa/);
 });
