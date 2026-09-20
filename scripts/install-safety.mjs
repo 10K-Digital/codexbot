@@ -42,7 +42,7 @@ export function backupInstallation(plan,backup){
 
 export function launchEnvironment(prior={},env=process.env){
  const result={...prior,PATH:env.PATH||prior.PATH||'/usr/bin:/bin'};
- for(const name of ['EQUIPE_CODEX','CODEX_HOME','CODEXBOT_PORT','EQUIPE_PORT'])if(env[name])result[name]=String(env[name]);
+ for(const name of ['EQUIPE_CODEX','CODEX_HOME','CODEXBOT_PORT','EQUIPE_PORT','CODEXBOT_PUBLIC_PORT','CODEXBOT_CLOUDFLARED'])if(env[name])result[name]=String(env[name]);
  delete result.OPENAI_API_KEY;delete result.CODEX_API_KEY;
  return result;
 }

@@ -1,3 +1,4 @@
+import {createPublicAccess} from './public-access.mjs';
 import {previewMessageFile} from './file-preview.mjs';
 import {createRoutines,routineTools} from './routines.mjs';
 import {chooseRoute,retryDecision,createFailureMemory,outcomeTool,MAX_ATTEMPTS} from './routing.mjs';
@@ -34,6 +35,7 @@ function atomic(file,obj){const tmp=file+'.tmp';fs.writeFileSync(tmp,JSON.string
 const tokenFile=path.join(DATA,'device-token');
 if(!fs.existsSync(tokenFile))fs.writeFileSync(tokenFile,randomBytes(32).toString('hex'),{mode:0o600});
 const TOKEN=fs.readFileSync(tokenFile,'utf8').trim();
+const publicAccess=createPublicAccess({root:ROOT,bridgePort:PORT,bridgeToken:TOKEN,port:Number(process.env.CODEXBOT_PUBLIC_PORT||PORT+1)});
 const stateFile=path.join(DATA,'state.json');
 let state=fs.existsSync(stateFile)?JSON.parse(fs.readFileSync(stateFile,'utf8')):{messages:[],jobs:[],routines:catalog.routines,exchanges:[],scheduleSlots:{}};
 for(const j of state.jobs)if(['running','waiting'].includes(j.status)){j.status='interrupted';j.error='O executor reiniciou; confira as ações já realizadas antes de tentar novamente.';}
@@ -226,6 +228,7 @@ const server=http.createServer(async(req,res)=>{
  const remoteHost=REMOTE&&host===new URL(REMOTE).host;
  const remoteOK=remoteAuthorized({host,login:req.headers['tailscale-user-login'],address:req.socket.remoteAddress},remote);
  if((!remoteHost&&![`127.0.0.1:${PORT}`,`localhost:${PORT}`].includes(host))||!originAllowed(origin,SITE,PORT,REMOTE))return send(403,{error:'Origem não autorizada.'});
+ if(!remoteHost&&(req.headers['cf-connecting-ip']||req.headers['cf-ray']))return send(403,{error:'Use a entrada protegida do acesso público.'});
  const principal=route?clientPrincipal(req,remoteOK):null;
  if(remoteHost&&!remoteOK&&!(route&&principal))return send(403,{error:'Acesso reservado à sua conta Tailscale. Ative o Tailscale com a conta do proprietário.'});
  if(origin){res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin');}
@@ -239,12 +242,18 @@ const server=http.createServer(async(req,res)=>{
    const language=resolveLanguage(url.searchParams.get('lang'),String(req.headers['accept-language']||'').split(',').map(s=>s.split(';')[0].trim()));const tr=key=>translate(key,language);
    if(remoteOK){res.writeHead(302,{Location:'/'});return res.end();}
    res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'"});
-   return res.end(`<!doctype html><html lang="${language}"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${tr('Conectar este Mac')}</title><style>body{font:17px system-ui;background:#13161c;color:#edf1f8;max-width:600px;margin:12vh auto;padding:24px;line-height:1.6}a{display:block;color:#fff;background:#315fdf;border-radius:12px;padding:16px;margin:20px 0;text-decoration:none}small{color:#acb8cb}</style><h1>${tr('Conectar este Mac à sua equipe')}</h1><p>${tr('O Codex deste Mac executa os agentes usando sua conta ChatGPT. O computador precisa permanecer ligado.')}</p>${SITE?`<a href="${SITE}/#device=${TOKEN}">${tr('Abrir meu site privado conectado')}</a>`:''}<a href="/#device=${TOKEN}">${tr('Abrir painel local')}</a><small>${tr('A conexão dá ao painel acesso aos agentes e às aprovações deste Mac. O endereço de conexão é pessoal.')}</small></html>`);
+   return res.end(`<!doctype html><html lang="${language}"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${tr('Conectar este Mac')}</title><style>body{font:17px system-ui;background:#13161c;color:#edf1f8;max-width:600px;margin:12vh auto;padding:24px;line-height:1.6}a{display:block;color:#fff;background:#315fdf;border-radius:12px;padding:16px;margin:20px 0;text-decoration:none}small{color:#acb8cb}</style><h1>${tr('Conectar este Mac à sua equipe')}</h1><p>${tr('O Codex deste Mac executa os agentes usando sua conta ChatGPT. O computador precisa permanecer ligado.')}</p>${SITE?`<a href="${SITE}/#device=${TOKEN}">${tr('Abrir meu site privado conectado')}</a>`:''}<a href="/${url.searchParams.get('setup')==='public'?'?setup=public':''}#device=${TOKEN}">${tr('Abrir painel local')}</a><small>${tr('A conexão dá ao painel acesso aos agentes e às aprovações deste Mac. O endereço de conexão é pessoal.')}</small></html>`);
   }
   if(url.pathname.startsWith('/api/')){
    const fileRoute=/^\/api\/files\/([a-f0-9-]+)$/.exec(url.pathname);
    const cookieToken=(req.headers.cookie||'').split(';').map(s=>s.trim()).find(s=>s.startsWith('equipe_files='))?.slice(13);
    if(!remoteOK&&!sameSecret(req.headers.authorization,'Bearer '+TOKEN)&&!(fileRoute&&sameSecret(cookieToken,TOKEN)))return send(401,{error:'Conecte este Mac para continuar.'});
+   if(url.pathname==='/api/public-access'){
+    if(remoteHost||req.headers['x-forwarded-for']||req.headers['x-forwarded-host']||!sameSecret(req.headers.authorization,'Bearer '+TOKEN)||origin&&!['http://127.0.0.1:'+PORT,'http://localhost:'+PORT].includes(origin))return send(403,{error:'Configure o acesso público na interface local do Mac.'});
+    if(req.method==='GET')return send(200,publicAccess.status());
+    if(req.method==='POST')return send(200,await publicAccess.configure(await body(req)));
+    return send(405,{error:'Método não permitido.'});
+   }
    if(fileRoute&&['GET','HEAD'].includes(req.method))return attachments.serve(req,res,fileRoute[1]);
    if(req.method==='GET'&&url.pathname==='/api/state'){if(!remoteOK)res.setHeader('Set-Cookie',`equipe_files=${TOKEN}; HttpOnly; SameSite=Strict; Path=/api/files; Max-Age=3600`);return send(200,snapshot());}
    if(req.method==='POST'&&url.pathname==='/api/file-preview'){const b=await body(req),m=state.messages.find(m=>m.id===b.messageId);if(!m||!byAgent.has(m.agentId)||state.jobs.find(j=>j.id===m.jobId)?.a2a)throw Error('Mensagem não encontrada.');return send(200,await previewMessageFile({message:m,target:b.target,workspace:workspace({agentId:m.agentId,conversationId:m.conversationId})}));}
@@ -287,7 +296,7 @@ const server=http.createServer(async(req,res)=>{
    return send(404,{error:'Rota desconhecida'});
   }
   if(req.method!=='GET')return send(405,{error:'Método não permitido'});
-  const files={'/timezone.mjs':'timezone.mjs','/file-links.mjs':'file-links.mjs','/browser-fullscreen.mjs':'browser-fullscreen.mjs','/browser-url.mjs':'browser-url.mjs','/browser-clipboard.mjs':'browser-clipboard.mjs','/navigation.mjs':'navigation.mjs','/schedule.mjs':'schedule.mjs','/routine-editor.mjs':'routine-editor.mjs','/feedback.js':'feedback.js','/live-voice.js':'live-voice.js','/voice.js':'voice.js','/mascot.svg':'mascot.svg','/':'index.html','/app.js':'app.js','/style.css':'style.css','/favicon.svg':'favicon.svg','/connection.mjs':'connection.mjs','/cards.mjs':'cards.mjs','/manifest.webmanifest':'manifest.webmanifest','/manifest.pt.webmanifest':'manifest.pt.webmanifest','/manifest.en.webmanifest':'manifest.en.webmanifest','/manifest.es.webmanifest':'manifest.es.webmanifest','/icon.svg':'icon.svg','/pwa.js':'pwa.js','/i18n.mjs':'i18n.mjs','/translations.mjs':'translations.mjs','/sw.js':'sw.js','/icon-192.png':'icon-192.png','/icon-512.png':'icon-512.png','/apple-touch-icon.png':'apple-touch-icon.png'};
+  const files={'/public-access.js':'public-access.js','/timezone.mjs':'timezone.mjs','/file-links.mjs':'file-links.mjs','/browser-fullscreen.mjs':'browser-fullscreen.mjs','/browser-url.mjs':'browser-url.mjs','/browser-clipboard.mjs':'browser-clipboard.mjs','/navigation.mjs':'navigation.mjs','/schedule.mjs':'schedule.mjs','/routine-editor.mjs':'routine-editor.mjs','/feedback.js':'feedback.js','/live-voice.js':'live-voice.js','/voice.js':'voice.js','/mascot.svg':'mascot.svg','/':'index.html','/app.js':'app.js','/style.css':'style.css','/favicon.svg':'favicon.svg','/connection.mjs':'connection.mjs','/cards.mjs':'cards.mjs','/manifest.webmanifest':'manifest.webmanifest','/manifest.pt.webmanifest':'manifest.pt.webmanifest','/manifest.en.webmanifest':'manifest.en.webmanifest','/manifest.es.webmanifest':'manifest.es.webmanifest','/icon.svg':'icon.svg','/pwa.js':'pwa.js','/i18n.mjs':'i18n.mjs','/translations.mjs':'translations.mjs','/sw.js':'sw.js','/icon-192.png':'icon-192.png','/icon-512.png':'icon-512.png','/apple-touch-icon.png':'apple-touch-icon.png'};
   if(!files[url.pathname])return send(404,{error:'Arquivo não encontrado'});
   const ext=path.extname(files[url.pathname]),mime={'.png':'image/png','.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.mjs':'text/javascript','.webmanifest':'application/manifest+json'}[ext];
   res.writeHead(200,{'Content-Type':mime+'; charset=utf-8'});res.end(fs.readFileSync(path.join(ROOT,'dist',files[url.pathname])));
@@ -296,8 +305,9 @@ const server=http.createServer(async(req,res)=>{
 setInterval(()=>void push.tick([...pending.values()],catalog.agents).catch(()=>{}),5000).unref();
 setInterval(()=>routines.tick(),15000).unref();
 const awake=spawn('/usr/bin/caffeinate',['-i','-w',String(process.pid)],{stdio:'ignore'});awake.on('error',()=>{});
-server.listen(PORT,'127.0.0.1',()=>{console.log(`Equipe em http://127.0.0.1:${PORT}/connect`);void connect().then(pump).catch(e=>console.error(e.message));});
-process.on('SIGTERM',()=>{persist();browser.close();child?.kill();server.close(()=>process.exit(0));});
-process.on('SIGINT',()=>{persist();browser.close();child?.kill();server.close(()=>process.exit(0));});
+server.listen(PORT,'127.0.0.1',()=>{console.log(`Equipe em http://127.0.0.1:${PORT}/connect`);void publicAccess.start();void connect().then(pump).catch(e=>console.error(e.message));});
+async function shutdown(){persist();browser.close();child?.kill();await publicAccess.close();server.close(()=>process.exit(0));}
+process.once('SIGTERM',()=>void shutdown());
+process.once('SIGINT',()=>void shutdown());
 
 setInterval(()=>{try{feedback.tick();}catch(e){console.error('Feedback review:',e.message);}},15000).unref();

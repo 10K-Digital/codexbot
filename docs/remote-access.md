@@ -1,13 +1,14 @@
 # Acesso remoto seguro ao Codexbot
 
-Este guia documenta o código atual. Ele não abre portas nem configura túneis automaticamente. Exemplos usam domínios e identidades fictícios. Guarde valores reais e segredos somente em arquivos privados fora do Git.
+Este guia documenta o código atual. O acesso público nativo opcional é descrito ao final; os exemplos de gateways externos continuam sendo referências avançadas. Exemplos usam domínios e identidades fictícios. Guarde valores reais e segredos somente em arquivos privados fora do Git.
 
-**Recomendação para uso pessoal: Tailscale Serve.** Para abrir a interface em um navegador sem cliente VPN, use um endereço público com login obrigatório e um gateway de identidade. Um túnel sozinho resolve conectividade, não autorização.
+**Opções nativas: Tailscale Serve ou Cloudflare Tunnel com senha.** Para abrir a interface em um navegador sem cliente VPN, use um endereço público com login obrigatório e um gateway de identidade. Um túnel sozinho resolve conectividade, não autorização.
 
 | Método | Quem alcança o endereço | Situação no Codexbot |
 | --- | --- | --- |
 | Tailscale Serve | Dispositivos autorizados na tailnet | Integração de identidade existente; caminho recomendado. |
 | Encaminhamento SSH | Cliente que autenticou no SSH | Alternativa para desktop com pareamento local. |
+| Cloudflare Tunnel + senha nativa | Internet; login obrigatório | Configurável na instalação e nas preferências locais. |
 | Cloudflare Tunnel + gateway OIDC | Internet; aplicação só após login autorizado | Exige gateway e adaptação de cookies no frontend; referência abaixo. |
 | Tailscale Funnel + gateway OIDC | Internet; aplicação só após login autorizado | Alternativa de transporte para o mesmo gateway; não encaminhar direto à ponte. |
 | Reverse proxy próprio + OIDC | Internet; aplicação só após login autorizado | Exige TLS, gateway e operação do servidor. |
@@ -109,20 +110,7 @@ A adaptação essencial é esta: o gateway obtém o email **da resposta autentic
 
 ### Pré-requisito de compatibilidade: cookies do frontend
 
-**O frontend atual ainda não funciona integralmente com esse login baseado em cookie.** Em `dist/app.js`, o helper `api()`, o upload de anexos (`addFiles`) e o upload de áudio usam `credentials: local ? 'same-origin' : 'omit'`. Em um domínio público, isso omite o cookie mesmo quando interface e API estão na mesma origem. O resultado esperado sem adaptação é: login abre a página, mas as chamadas API recebem 401.
-
-Antes de publicar este caminho, implemente e revise nesses três pontos uma política equivalente a:
-
-```js
-// Apenas para frontend e API no mesmo domínio autenticado.
-const bridgeCredentials = new URL(API).origin === location.origin
-  ? 'same-origin'
-  : 'omit';
-// Em cada fetch destinado à ponte:
-// credentials: bridgeCredentials
-```
-
-Não use `include` indiscriminadamente nem envie cookies a uma ponte de outra origem. Audite novos pontos de fetch, teste uploads, voz, sessão expirada e logout. Essa mudança é um pré-requisito documentado, **não foi aplicada pelo guia**. O caminho Tailscale Serve não depende desses cookies e continua sendo o método pronto para uso.
+**O frontend usa cookies apenas quando interface e API estão na mesma origem.** O gateway OIDC externo abaixo ainda requer configuração e validação próprias. A descrição histórica a seguir foi substituída pela implementação nativa:  Em `dist/app.js`, API, anexos e áudio usam `same-origin` para a própria origem e `omit` para outra origem. O acesso público nativo exige esse modelo de mesma origem.
 
 ### Configure a identidade primeiro
 
@@ -299,3 +287,30 @@ Não cole cookies, tokens ou respostas privadas em issues. Mesmo autenticado, o 
 - **Frontend hospedado separado:** a origem permitida fica em `.private/config.json` (`siteOrigin`); isso não concede identidade nem dispensa acesso à ponte. Prefira same-origin no gateway público.
 
 Para retirar acesso público, pare o conector e remova a rota DNS/ingresso dedicada; confirme de uma rede externa que deixou de funcionar. Revogue sessões no gateway/provedor e restaure a configuração anterior de `remote.json` com backup. Retire apenas os serviços criados para essa ponte. Nunca use a remoção do túnel como motivo para apagar os dados do Codexbot.
+
+## Acesso público nativo com senha (Cloudflare Tunnel)
+
+O aplicativo inclui um gateway dedicado em loopback, na porta do servidor + 1 (por padrão `4321`; override `CODEXBOT_PUBLIC_PORT`). O Cloudflare deve encaminhar **somente para esse gateway**, nunca diretamente para `4320`. A interface e todas as APIs públicas exigem uma sessão autenticada. O acesso local e o Tailscale continuam usando seus mecanismos existentes.
+
+Na instalação, use `bash install.sh --with-public-access`. Essa opção instala `cloudflared` e abre as configurações após o pareamento local; não publica nada antes de definir a senha e ativar. Em uma instalação existente, abra o painel local no Mac → Configurações → Acesso público. O botão de instalação usa o Homebrew existente para instalar o conector oficial.
+
+1. Prepare um túnel dedicado na sua conta Cloudflare e uma rota de hostname permanente, por exemplo `mac-01.example.com`, para `http://127.0.0.1:4321` (ou a porta indicada na interface). Preserve o Host original, habilite HTTPS e não adicione regras de cache para essa aplicação.
+2. Informe a URL HTTPS e apenas o token desse túnel na seção Configuração do túnel. Não use o token geral da conta Cloudflare, nem compartilhe o token de um túnel entre instalações de pessoas diferentes.
+3. Defina e confirme uma senha de no mínimo 12 caracteres, marque Ativar acesso público e salve. O estado distingue o conector instalado, a conexão com Cloudflare e erros de inicialização. “Conectado” confirma o transporte; ainda é necessário verificar DNS e HTTPS externamente.
+4. Abra a URL por uma rede externa e entre com a senha. Teste também acesso sem cookie, senha errada, logout, anexos, sessão expirada e revogação. A URL fica reservada no Cloudflare mesmo com o Mac desligado, mas a interface fica indisponível enquanto ele estiver offline.
+
+A configuração privada fica em `.private/config.json`, no campo `publicAccess`. A senha é armazenada somente como hash scrypt com salt aleatório; o token do túnel fica em arquivo privado e nunca vai para a configuração do frontend. `cloudflared` recebe o token por arquivo, não por argumento. Sessões públicas ficam apenas na memória, expiram em 12 horas e são invalidadas ao reiniciar, salvar configurações ou desativar. Há limite de tentativas por IP, limite global e concorrência limitada de verificação. Logout apaga a sessão e pede ao navegador para limpar cache e armazenamento dessa origem. O service worker público não armazena respostas autenticadas em cache.
+
+A API de configuração e a página de pareamento local são bloqueadas pelo gateway mesmo após login. O gateway não aceita cabeçalhos Tailscale, cookies locais ou Bearer tokens como autenticação pública e não encaminha o token local ao navegador. Requisições de escrita exigem Origin exata. Downloads passam pelo gateway com a mesma sessão.
+
+### Domínio registrado na GoDaddy
+
+O registro pode continuar na GoDaddy. No plano gratuito, use a zona completa com DNS autoritativo na Cloudflare; delegar apenas um subdomínio como zona independente requer Enterprise. Antes de trocar nameservers, exporte e confira todos os registros existentes, incluindo MX, SPF, DKIM, DMARC, verificações e a landing. Preserve os destinos e o modo DNS-only de serviços que não devem passar pelo proxy. Confira DNSSEC antes da troca. Só efetue a migração depois de revisar os registros importados.
+
+Uma URL por instalação exige provisionar um túnel e um registro DNS por instalação. O aplicativo não distribui credenciais administrativas do domínio nem oferece um serviço central de cadastro. O administrador fornece a URL e o token dedicado; o usuário define sua própria senha no Mac.
+
+### Login ChatGPT pela landing
+
+O login ChatGPT oferecido pelo Sites autentica a origem hospedada pelo Sites. Ele não cria uma sessão automaticamente em outro subdomínio. Para adotá-lo, seria necessário implementar um intermediário com códigos de uso único, vínculo entre conta e instalação, validação server-side, expiração e revogação. A implementação atual usa a senha local explicitamente autorizada como alternativa; não simula login ChatGPT nem reutiliza as credenciais do Codex para autenticar visitantes.
+
+Referências: [Cloudflare Tunnel](https://developers.cloudflare.com/tunnel/get-started/), [DNS full setup](https://developers.cloudflare.com/dns/zone-setups/full-setup/setup/), [subdomain setup](https://developers.cloudflare.com/dns/zone-setups/subdomain-setup/), [Sites login](https://developers.openai.com/pt-BR/docs/sites#adicione-a-opção-entrar-com-o-chatgpt).

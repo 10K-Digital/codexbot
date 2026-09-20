@@ -93,3 +93,7 @@ O comando de nível baixo `npm run install-service` continua disponível para ma
 O instalador abre apenas a ponte local. Não habilita VPN, túnel público, Tailscale Funnel nem publica a interface. Depois da instalação, siga [como funciona a ponte](mac-bridge.md) e [acesso remoto](remote-access.md) para Tailscale privado, SSH ou uma configuração pública com autenticação. A PWA, notificações e microfone remoto dependem de HTTPS e das permissões do navegador.
 
 Referências: [Homebrew](https://brew.sh/), [instalação do Codex CLI](https://developers.openai.com/codex/cli), [autenticação do Codex](https://developers.openai.com/codex/auth), [repositório oficial](https://github.com/10K-Digital/codexbot).
+
+## Optional public connection
+
+`bash install.sh --with-public-access` installs the Cloudflare connector and opens the public-access settings after local pairing. You can also install the connector and configure the URL, dedicated tunnel token, and password from the local settings later. Public access starts disabled. Follow [remote access](remote-access.md#acesso-público-nativo-com-senha-cloudflare-tunnel) before enabling it.

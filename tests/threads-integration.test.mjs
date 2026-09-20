@@ -6,6 +6,9 @@ test('HTTP threads isolate context and every new task starts a fresh model sessi
  const listener=net.createServer();await new Promise(r=>listener.listen(0,'127.0.0.1',r));const port=listener.address().port;await new Promise(r=>listener.close(r));child=spawn(process.execPath,[path.join(root,'server.mjs')],{env:{...process.env,EQUIPE_CODEX:fake,CODEXBOT_PORT:String(port)},stdio:'ignore'});
  let token;for(let i=0;i<100;i++){try{token=fs.readFileSync(path.join(root,'.runtime/device-token'),'utf8');await fetch('http://127.0.0.1:'+port+'/');break;}catch{await delay(30);}}
  const api=async(route,body)=>{const r=await fetch('http://127.0.0.1:'+port+'/api/'+route,{method:body?'POST':'GET',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});const j=await r.json();assert(r.ok,JSON.stringify(j));return j;};
+ const moduleResponse=await fetch('http://127.0.0.1:'+port+'/public-access.js');assert.equal(moduleResponse.status,200);assert.match(moduleResponse.headers.get('content-type'),/javascript/);
+ const publicSettings=await api('public-access');assert.equal(publicSettings.enabled,false);assert.equal(publicSettings.authentication,'password');
+ const misrouted=await fetch('http://127.0.0.1:'+port+'/connect',{headers:{'CF-Connecting-IP':'198.51.100.3'}});assert.equal(misrouted.status,403);
  const native=(await api('state')).skills.find(s=>s.id==='codexbot-feedback-review');assert.equal(native.native,true);assert.equal(native.canRead,false);assert(!('instructions' in native));assert(!('path' in native));
  const protectedRead=await fetch('http://127.0.0.1:'+port+'/api/skill?id='+native.id,{headers:{Authorization:'Bearer '+token}});assert.equal(protectedRead.status,403);assert(!('instructions' in await protectedRead.json()));
  await assert.rejects(api('skills',{id:native.id,name:'Changed',description:'Changed',instructions:'Changed',native:false}));

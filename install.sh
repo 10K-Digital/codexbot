@@ -7,12 +7,13 @@ say() { printf '\n%s\n' "$*"; }
 fail() { printf '\nCodexbot: %s\n' "$*" >&2; exit 1; }
 usage() {
   cat <<'HELP'
-Usage: bash install.sh [--source PATH] [--check] [--no-open] [--with-local-voice]
+Usage: bash install.sh [--source PATH] [--check] [--no-open] [--with-local-voice] [--with-public-access]
 Installs Codexbot for the current macOS user, preserving existing private data.
 --source PATH       Source checkout (default: saved location or ~/dev/codexbot).
 --check             Read-only prerequisite report; no downloads or service changes.
 --no-open           Do not open the local connection page after installation.
 --with-local-voice  Also install optional local speech transcription (uv + model).
+--with-public-access Install Cloudflare connector and open public-access settings.
 Homebrew may request macOS approval. ChatGPT sign-in remains interactive.
 No tunnel, public endpoint or API-key authentication is configured.
 HELP
@@ -25,7 +26,7 @@ find_codex() {
   command -v codex 2>/dev/null || true
 }
 main() {
-  local source_dir='' check=0 no_open=0 local_voice=0 option
+  local source_dir='' check=0 no_open=0 local_voice=0 public_access=0 option
   while [ "$#" -gt 0 ]; do
     option="$1"; shift
     case "$option" in
@@ -33,6 +34,7 @@ main() {
       --check) check=1 ;;
       --no-open) no_open=1 ;;
       --with-local-voice) local_voice=1 ;;
+      --with-public-access) public_access=1 ;;
       --help|-h) usage; return ;;
       *) fail "Unknown option: $option" ;;
     esac
@@ -57,7 +59,7 @@ main() {
   say "Installing Codexbot. Source: $source_dir"
   installer_tmp="$(mktemp -d "${TMPDIR:-/tmp}/codexbot-install.XXXXXX")"
   trap 'rm -rf -- "$installer_tmp"' EXIT
-  if ! node_ok || ! git_ok || [ ! -x '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' ] || { [ "$local_voice" -eq 1 ] && ! command -v uv >/dev/null 2>&1; }; then
+  if ! node_ok || ! git_ok || [ ! -x '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' ] || { [ "$local_voice" -eq 1 ] && ! command -v uv >/dev/null 2>&1; } || { [ "$public_access" -eq 1 ] && ! command -v cloudflared >/dev/null 2>&1; }; then
     brew_bin="$(command -v brew || true)"
     if [ -z "$brew_bin" ]; then
       [ -r /dev/tty ] || fail 'Open Terminal to approve Homebrew installation, then run again.'
@@ -74,6 +76,11 @@ main() {
     if ! git_ok; then "$brew_bin" install git; fi
     if [ ! -x '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' ]; then "$brew_bin" install --cask google-chrome < /dev/tty; fi
     if [ "$local_voice" -eq 1 ] && ! command -v uv >/dev/null 2>&1; then "$brew_bin" install uv; fi
+  fi
+  if [ "$public_access" -eq 1 ] && ! command -v cloudflared >/dev/null 2>&1; then
+    brew_bin="$(command -v brew || true)"
+    [ -n "$brew_bin" ] || fail 'Install Homebrew first to install the optional Cloudflare connector.'
+    "$brew_bin" install cloudflared
   fi
   node_ok || fail 'Node.js >=22 and npm are required.'
   git_ok || fail 'Git is required. Finish the Apple Command Line Tools setup and run again.'
@@ -119,6 +126,7 @@ main() {
   local args=(--bootstrap)
   [ "$no_open" -eq 0 ] || args+=(--no-open)
   [ "$local_voice" -eq 0 ] || args+=(--with-local-voice)
+  [ "$public_access" -eq 0 ] || args+=(--with-public-access)
   node scripts/install-local.mjs "${args[@]}"
   mkdir -p "$(dirname "$registry")"
   printf '%s\n' "$source_dir" > "$registry"

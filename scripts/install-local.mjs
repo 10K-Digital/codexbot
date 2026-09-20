@@ -59,7 +59,7 @@ try{
  if(!ready)throw Error('Bridge did not become ready with ChatGPT. Review the private service logs and sign-in, then retry.');
  fs.writeFileSync(path.join(plan.root,'.private/source.json'),JSON.stringify({source,commit:spawnSync('git',['rev-parse','HEAD'],{cwd:source,encoding:'utf8'}).stdout.trim()},null,2),{mode:0o600});
  console.log(`Codexbot ready. Installation: ${plan.root}\nService: ${plan.label}\nOpen locally: http://127.0.0.1:${port}/connect`);
- if(!process.argv.includes('--no-open')){const opened=spawnSync('/usr/bin/open',[`http://127.0.0.1:${port}/connect`]);if(opened.status!==0)console.warn('Open the local connection page manually.');}
+ if(!process.argv.includes('--no-open')){const publicSetup=process.argv.includes('--with-public-access')?'?setup=public':'';const opened=spawnSync('/usr/bin/open',[`http://127.0.0.1:${port}/connect${publicSetup}`]);if(opened.status!==0)console.warn('Open the local connection page manually.');}
 }catch(error){
  // Once activation was attempted, do not restore/replay old state automatically:
  // a scheduled job might already have produced external side effects.

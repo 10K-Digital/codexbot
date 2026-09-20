@@ -221,3 +221,7 @@ In an agent’s Routines tab, edit a routine and choose **Uma única vez** to se
 ### Automatic scheduling timezone
 
 Each private installation detects its owner’s device timezone on connection, with the Mac timezone as fallback. New or edited schedules save that IANA timezone; existing schedules retain their timezone when connecting from another device or while traveling. Imported legacy schedules keep America/Sao_Paulo until their schedule is edited. The routine editor shows the detected timezone and any difference from the saved schedule. One-time dates are converted to an absolute instant using the timezone’s daylight saving rules. Nonexistent local times are rejected; a repeated hour uses its first occurrence.
+
+### Optional public access
+
+Use `bash install.sh --with-public-access`, or open the local Mac settings → Acesso público. Configure a dedicated Cloudflare Tunnel URL and token, choose a password, and enable access. The public endpoint always requires that password; local and Tailscale access remain available. See [native public access](docs/remote-access.md#acesso-público-nativo-com-senha-cloudflare-tunnel) for DNS setup, the dedicated gateway port, and recovery.
