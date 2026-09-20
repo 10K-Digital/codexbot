@@ -1,6 +1,17 @@
-/* Public access: no response cache, including after logout or session expiry. */
-self.addEventListener('install',()=>self.skipWaiting());
-self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('equipe-shell-')).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
+/* Cache only generic offline artwork and fallback HTML, never authenticated responses. */
+const CACHE='equipe-shell-v37';
+const SHELL=['/offline.html','/boot.css','/boot.js','/mascot.svg','/mascot-crying.svg','/icon-192.png','/icon-512.png'];
+self.addEventListener('install',event=>event.waitUntil((async()=>{
+ const cache=await caches.open(CACHE);
+ for(const path of SHELL){const response=await fetch(path,{cache:'reload'});if(!response.ok||response.redirected)throw Error('Offline asset unavailable');await cache.put(path,response);}
+ await self.skipWaiting();
+})()));
+self.addEventListener('activate',event=>event.waitUntil(Promise.all([caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('equipe-shell-')&&k!==CACHE).map(k=>caches.delete(k)))),self.clients.claim()])));
+self.addEventListener('fetch',event=>{
+ const url=new URL(event.request.url);if(event.request.method!=='GET'||url.origin!==self.location.origin)return;
+ if(SHELL.includes(url.pathname)&&!url.search){event.respondWith(caches.match(url.pathname).then(cached=>cached||fetch(event.request)));return;}
+ if(event.request.mode==='navigate'&&url.pathname==='/')event.respondWith(fetch(event.request).then(response=>response.status>=500?caches.match('/offline.html'):response).catch(()=>caches.match('/offline.html')));
+});
 self.addEventListener('push',event=>event.waitUntil((async()=>{
  let data={};try{data=event.data.json();}catch{}
  const conversation=typeof data.conversation==='string'?data.conversation.slice(0,160):'';

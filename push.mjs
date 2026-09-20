@@ -16,11 +16,21 @@ export function createPush({directory,subject,state,send=webpush.sendNotificatio
  function read(conversationId,through){if(typeof conversationId!=='string'||conversationId.length>160)throw Error('Conversa inválida.');const time=Date.parse(through);if(!Number.isFinite(time)||time>now()+5000)throw Error('Data inválida.');data.reads[conversationId]=Math.max(data.reads[conversationId]||0,Math.min(time,now()));save();}
  let busy=false;
  async function tick(approvals,agents){if(busy)return;busy=true;try{
- const events=[];
- for(const m of state.messages){if(m.role!=='assistant'||m.streaming||!m.text)continue;const job=state.jobs.find(j=>j.id===m.jobId);if(job?.a2a||job?.status!=='completed')continue;const conversation= m.conversationId||m.agentId,time=Date.parse(job.finishedAt||m.createdAt);if(time<= (data.reads[conversation]||0)||now()-time<6000)continue;events.push({id:m.id,time,conversation,agentId:m.agentId,type:'reply'});}
- for(const a of approvals){const job=state.jobs.find(j=>j.agentId===a.agentId&&j.status==='waiting');events.push({id:a.id,time:Date.parse(a.createdAt),conversation:job?.conversationId||a.agentId,agentId:a.agentId,type:'approval'});}
- for(const entry of [...data.subscriptions]){if(entry.retryAt>now())continue;const candidates=events.filter(e=>(e.type==='approval'||e.time>=entry.since)&&!entry.sent.includes(e.id));for(const event of candidates.slice(-8)){
- const tr=(key,params)=>translate(key,entry.language||'pt',params);const name=agents.find(a=>a.id===event.agentId)?.name||tr('Sua equipe');const payload={title:event.type==='approval'?tr('Aprovação pendente'):tr('{name} respondeu',{name}),body:event.type==='approval'?tr('{name} precisa da sua revisão.',{name}):tr('Há uma resposta não lida na sua equipe.'),tag:event.type+':'+event.conversation,conversation:event.conversation,badge:events.length};
+ const events=[],cards=[],approvalJobs=new Set();
+ for(const m of state.messages){
+  if(!['assistant','agent'].includes(m.role)||m.streaming||m.superseded)continue;
+  const job=state.jobs.find(j=>j.id===m.jobId);if(job?.a2a)continue;
+  const conversation=m.conversationId||m.agentId;
+  if(m.card?.actions?.length&&!m.card.response){cards.push(m);events.push({id:m.id,time:Date.parse(m.createdAt)||0,conversation,agentId:m.agentId,type:'task'});continue;}
+  if(!m.text||job&&job.status!=='completed')continue;
+  const time=Math.max(Date.parse(job?.finishedAt)||0,Date.parse(m.createdAt)||0);
+  if(!time||time<=(data.reads[conversation]||0)||now()-time<6000)continue;
+  events.push({id:m.id,time,conversation,agentId:m.agentId,type:'reply'});
+ }
+ for(const a of approvals){const job=state.jobs.find(j=>j.id===a.jobId)||state.jobs.find(j=>j.agentId===a.agentId&&j.status==='waiting');if(job?.a2a)continue;if(job)approvalJobs.add(job.id);events.push({id:a.id,time:Date.parse(a.createdAt)||0,conversation:job?.conversationId||a.conversationId||a.agentId,agentId:a.agentId,type:'approval'});}
+ for(const job of state.jobs){if(job.status!=='waiting'||job.a2a||approvalJobs.has(job.id)||cards.some(m=>m.jobId===job.id))continue;events.push({id:'waiting:'+job.id,time:Date.parse(job.startedAt||job.createdAt)||0,conversation:job.conversationId||job.agentId,agentId:job.agentId,type:'task'});}
+ for(const entry of [...data.subscriptions]){if(entry.retryAt>now())continue;const candidates=events.filter(e=>(e.type!=='reply'||e.time>=entry.since)&&!entry.sent.includes(e.id));for(const event of candidates.slice(-8)){
+ const tr=(key,params)=>translate(key,entry.language||'pt',params);const name=agents.find(a=>a.id===event.agentId)?.name||tr('Sua equipe');const payload={title:event.type==='approval'?tr('Aprovação pendente'):event.type==='task'?tr('Tarefa pendente'):tr('{name} respondeu',{name}),body:event.type!=='reply'?tr('{name} precisa da sua revisão.',{name}):tr('Há uma resposta não lida na sua equipe.'),tag:event.type+':'+event.conversation,conversation:event.conversation,badge:events.length};
  try{await send(entry.subscription,JSON.stringify(payload),options);entry.sent.push(event.id);entry.sent=entry.sent.slice(-2000);entry.lastSuccess=new Date(now()).toISOString();delete entry.lastError;delete entry.retryAt;entry.failures=0;save();}catch(e){entry.lastError='Não foi possível entregar a notificação.';entry.failures=(entry.failures||0)+1;entry.retryAt=now()+Math.min(3600000,15000*2**Math.min(entry.failures,8));if([404,410].includes(e.statusCode))remove(entry.subscription.endpoint);else save();break;}
  }}
  }finally{busy=false;}}

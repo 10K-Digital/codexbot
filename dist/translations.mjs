@@ -1,4 +1,17 @@
 export const messages = {
+"Acesso remoto e senha":{"en": "Remote access and password", "es": "Acceso remoto y contraseña"},
+"Senha de acesso remoto":{"en": "Remote access password", "es": "Contraseña de acceso remoto"},
+"Trocar a senha ou salvar as configurações encerra as sessões com senha abertas.":{"en": "Changing the password or saving settings ends open password sessions.", "es": "Cambiar la contraseña o guardar los ajustes cierra las sesiones con contraseña abiertas."},
+"Exigir senha também no Tailscale":{"en": "Also require a password on Tailscale", "es": "Exigir contraseña también en Tailscale"},
+"A mesma senha protege as duas conexões. O Tailscale continua exigindo a conta do proprietário.":{"en": "The same password protects both connections. Tailscale still requires the owner’s account.", "es": "La misma contraseña protege ambas conexiones. Tailscale sigue exigiendo la cuenta del propietario."},
+"Salvar acesso remoto":{"en": "Save remote access", "es": "Guardar acceso remoto"},
+"Sair do acesso remoto":{"en": "Sign out of remote access", "es": "Cerrar sesión remota"},
+"Entre com a senha de acesso remoto definida no Mac.":{"en": "Enter the remote access password set on your Mac.", "es": "Introduce la contraseña de acceso remoto definida en tu Mac."},
+"Defina uma senha antes de exigir autenticação no Tailscale.":{"en": "Set a password before requiring authentication on Tailscale.", "es": "Define una contraseña antes de exigir autenticación en Tailscale."},
+"Notificações push":{"en": "Push notifications", "es": "Notificaciones push"},
+"Receba avisos de mensagens não lidas e tarefas pendentes, mesmo com o app fechado.":{"en": "Get alerts for unread messages and tasks awaiting your response, even with the app closed.", "es": "Recibe avisos de mensajes no leídos y tareas que esperan tu respuesta, incluso con la app cerrada."},
+"Tarefa pendente":{"en": "Task awaiting your response", "es": "Tarea pendiente"},
+
 "Acesso público":{"en": "Public access", "es": "Acceso público"},
 "Abra o Codebox pela internet sem Tailscale. O Mac precisa permanecer ligado.":{"en": "Open Codebox over the internet without Tailscale. Your Mac must stay on.", "es": "Abre Codebox por internet sin Tailscale. Tu Mac debe permanecer encendido."},
 "Verificando conexão…":{"en": "Checking connection…", "es": "Comprobando conexión…"},

@@ -1,0 +1,8 @@
+#boot-screen[hidden]{display:none!important}
+#boot-screen{position:fixed;inset:0;z-index:10000;display:flex;flex-direction:column;align-items:center;justify-content:center;box-sizing:border-box;padding:max(28px,env(safe-area-inset-top)) 28px max(28px,env(safe-area-inset-bottom));background:#e9ede7;color:#234638;text-align:center;font:16px/1.5 system-ui,-apple-system,sans-serif}
+#boot-screen img{width:152px;height:152px;margin-bottom:28px}
+#boot-screen h1{margin:0 0 10px;font-size:clamp(24px,5vw,30px);font-weight:600;letter-spacing:-.025em}
+#boot-screen p{max-width:320px;margin:0;color:#526459;text-wrap:pretty}
+#boot-screen button{margin-top:28px;min-height:44px;padding:10px 20px;border:1px solid #6b8978;border-radius:12px;background:transparent;color:inherit;font:inherit;cursor:pointer}
+#boot-screen button:focus-visible{outline:3px solid #308a68;outline-offset:4px}
+@media(prefers-color-scheme:dark){#boot-screen{background:#17211c;color:#e4efdf}#boot-screen p{color:#adbcad}}

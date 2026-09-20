@@ -15,8 +15,9 @@ import {t,locale,currentLanguage,storedPreference,detectLanguage,browserLanguage
 import {setupPWA} from './pwa.js';
 import {connectionState} from './connection.mjs';
 const $=s=>document.querySelector(s),all=s=>[...document.querySelectorAll(s)];
+const passwordConnection=globalThis.CODEXBOT_CONFIG?.passwordConnection===true;
 const publicConnection=globalThis.CODEXBOT_CONFIG?.publicConnection===true;
-const REMOTE=publicConnection?location.origin:localStorage.getItem('codexbot-remote-origin')||globalThis.CODEXBOT_CONFIG?.remoteOrigin||location.origin;
+const REMOTE=(publicConnection||passwordConnection)?location.origin:localStorage.getItem('codexbot-remote-origin')||globalThis.CODEXBOT_CONFIG?.remoteOrigin||location.origin;
 const local=['127.0.0.1','localhost'].includes(location.hostname);
 const API=local?location.origin:REMOTE;
 const remoteMode=!local;
@@ -42,7 +43,7 @@ function toast(text){$('#toast').textContent=t(text);$('#toast').hidden=false;cl
 async function api(route,data){
  if(!device&&!remoteMode)throw Error(t('Conecte este Mac primeiro.'));
  const r=await fetch(API+'/api/'+route,{method:data===undefined?'GET':'POST',headers:{...(device&&!remoteMode?{Authorization:'Bearer '+device}:{}),...(data===undefined?{}:{'Content-Type':'application/json'})},body:data===undefined?undefined:JSON.stringify(data),signal:AbortSignal.timeout(route==='public-access'?240000:data===undefined?8000:65000),credentials:bridgeCredentials});
- const b=await r.json();if(publicConnection&&r.status===401&&b.publicLogin){saveDraft();location.assign('/public/login');}if(!r.ok){const error=Error(t(b.error)||t('Não foi possível concluir.'));error.status=r.status;throw error;}return b;
+ const b=await r.json();if(r.status===401&&b.publicLogin){saveDraft();location.assign(new URL('/public/login',API).href);}if(!r.ok){const error=Error(t(b.error)||t('Não foi possível concluir.'));error.status=r.status;throw error;}return b;
 }
 function openDialog(title,content){$('#dialog-title').textContent=title;$('#dialog-body').replaceChildren(content);if(!$('#dialog').open)$('#dialog').showModal();}
 $('#close-dialog').onclick=()=>$('#dialog').close();
@@ -50,7 +51,7 @@ const pwa=setupPWA({api,el,button,toast,select:id=>{requestedConversation=id;voi
 function connectionDialog(){
  const box=el('div');
  if(local)box.append(publicAccessSettings({api,el,button}));
- if(publicConnection){const logout=el('form',{method:'post',action:'/public/logout'});logout.append(el('button',{type:'submit'},t('Sair do acesso público')));box.append(logout);}box.append(el('h3',{},t('Idioma')));const language=el('select',{id:'language-setting','aria-label':t('Idioma da interface')});
+ if(publicConnection||passwordConnection){const logout=el('form',{method:'post',action:'/public/logout'});logout.append(el('button',{type:'submit'},t('Sair do acesso remoto')));box.append(logout);}box.append(el('h3',{},t('Idioma')));const language=el('select',{id:'language-setting','aria-label':t('Idioma da interface')});
  for(const [value,label]of [['auto',t('Automático (navegador)')],['pt','Português'],['en','English'],['es','Español']])language.append(el('option',{value},label));language.value=storedPreference();
  language.onchange=async()=>{saveDraft();sessionStorage.setItem('equipe-language-view',JSON.stringify({files:queuedFiles,tab,scroll:$('#messages').scrollTop}));localStorage.setItem('equipe-language',language.value);await pwa.syncLanguage();location.reload();};
  box.append(language,el('p',{class:'muted'},t('Idioma detectado: {language}',{language:{pt:'Português',en:'English',es:'Español'}[detectLanguage(browserLanguages())]})));box.append(el('h3',{},t('Aparência')));const options=el('div',{class:'theme-options','aria-label':t('Tema')});
@@ -64,6 +65,7 @@ function connectionDialog(){
  if(connected&&!state.connection?.ready)box.append(button(t('Reconectar Codex'),async()=>{await api('connect',{});await refresh();toast('Conexão atualizada.');}));
  box.append(el('p',{class:'muted'},t('Os agentes usam sua assinatura do ChatGPT no Mac. Automações que controlam aplicativos podem precisar da tela desbloqueada.')));
  box.append(button(t('Feedbacks e melhorias'),()=>feedbackUI.center(),'text-link'));
+ const notifications=el('section');box.append(notifications);void pwa.notificationsPanel(notifications).catch(e=>toast(e.message));
  box.append(button(t('Instruções para instalar na tela inicial'),()=>pwa.instructions(),'text-link'));openDialog(t('Seu espaço, do seu jeito'),box);
 }
 $('#connection').onclick=connectionDialog;$('#settings').onclick=connectionDialog;
@@ -188,12 +190,13 @@ function routinePanel(){const box=$('#routines');box.replaceChildren(el('h2',{},
 function activityPanel(){const box=$('#activity');box.replaceChildren(el('h2',{},t('Trabalho em equipe')),el('p',{class:'intro'},t('Delegações e execuções registradas neste ambiente.')));for(const x of state.exchanges.filter(x=>x.from===selected||x.to===selected).slice().reverse()){const c=el('div',{class:'card'});c.append(el('h3',{},(state.agents.find(a=>a.id===x.from)?.name||x.from)+' → '+(state.agents.find(a=>a.id===x.to)?.name||x.to)),el('p',{},x.text));box.append(c);}for(const j of state.jobs.filter(j=>matches(j)).slice().reverse().slice(0,30)){const c=el('div',{class:'card'});c.append(el('h3',{},({queued:t('Na fila'),running:t('Em execução'),waiting:t('Aguardando revisão'),completed:t('Concluída'),failed:t('Falhou'),interrupted:t('Interrompida')})[j.status]||j.status),el('p',{},j.text.slice(0,350)),el('p',{class:'muted'},new Date(j.createdAt).toLocaleString(locale())));if(j.route)c.append(el('p',{class:'muted'},j.route.model+' · '+j.route.effort));if(j.attempts?.length){const history=el('details');history.append(el('summary',{},t('Tentativas e modelos')));for(const a of j.attempts)history.append(el('p',{},'#'+a.number+' · '+a.model+' · '+a.effort+' · '+a.status+(a.error?' — '+a.error:'')));c.append(history);}if(j.retryStop)c.append(el('p',{class:'muted'},t('Motivo da parada: {reason}',{reason:t(({limit:'Limite de tentativas atingido',partial_execution:'Execução parcial possível; revise antes de repetir',access:'Acesso ou autorização necessária',quota:'Limite de uso atingido',connection:'Conexão indisponível',blocked:'Dependência externa ou informação ausente',no_stronger_model:'Nenhum modelo compatível mais capaz disponível',interrupted:'Interrompida pelo usuário ou sessão'})[j.retryStop]||j.retryStop)})));if(j.error)c.append(el('p',{},t(j.error)));box.append(c);}if(!state.jobs.some(j=>matches(j)))box.append(el('p',{class:'empty'},t('As primeiras execuções aparecerão aqui.')));}
 function renderPanel(){const key=JSON.stringify([tab,selected,connected,state.skills,state.routines,state.exchanges,state.jobs]);if(tab!=='chat'&&panelKey===key)return;panelKey=key;if(tab==='chat')chat();else if(tab==='skills')skillPanel();else if(tab==='routines')routinePanel();else if(tab==='computer')computerPanel();else activityPanel();}
 async function refresh(){
- if(refreshPromise)return refreshPromise;if(!device&&!remoteMode)return;
+ if(refreshPromise)return refreshPromise;if(!device&&!remoteMode){globalThis.CODEXBOT_BOOT?.ready();return;}
  refreshPromise=(async()=>{try{
- state=await api('state');if(!timezoneSynced){const zone=detectedTimezone();if(state.timezone!==zone){const result=await api('timezone',{timezone:zone});state.timezone=result.timezone;}timezoneSynced=true;}presence.update(state.jobs);if(restoreSelection&&!requestedConversation){const id=restoreSelection;restoreSelection=null;if(state.agents.some(a=>a.id===id)||(state.channels||[]).some(c=>'channel:'+c.id===id)||(state.messageThreads||[]).some(t=>t.id===id))selectAgent(id);}if(requestedConversation){const id=requestedConversation;requestedConversation=null;if((state.messageThreads||[]).some(t=>t.id===id)||state.agents.some(a=>a.id===id)||(state.channels||[]).some(c=>'channel:'+c.id===id)){selectAgent(id);setTab('chat');}}connected=true;network=connectionState(network,{ok:true});connectionIssue='';
+ state=await api('state');if(!timezoneSynced){const zone=detectedTimezone();if(state.timezone!==zone){const result=await api('timezone',{timezone:zone});state.timezone=result.timezone;}timezoneSynced=true;}presence.update(state.jobs);if(restoreSelection&&!requestedConversation){const id=restoreSelection;restoreSelection=null;if(state.agents.some(a=>a.id===id)||(state.channels||[]).some(c=>'channel:'+c.id===id)||(state.messageThreads||[]).some(t=>t.id===id))selectAgent(id);}if(requestedConversation){const id=requestedConversation;requestedConversation=null;if((state.messageThreads||[]).some(t=>t.id===id)||state.agents.some(a=>a.id===id)||(state.channels||[]).some(c=>'channel:'+c.id===id)){selectAgent(id);setTab('chat');}}connected=true;network=connectionState(network,{ok:true});connectionIssue='';globalThis.CODEXBOT_BOOT?.ready();
  if(!state.agents.some(a=>a.id===selected)&&!channel()&&!branch())selected=state.agents[0].id;
  }catch(e){network=connectionState(network,{ok:false,status:e.status});
  if(['offline','unauthorized'].includes(network.phase))connected=false;
+ if(network.phase==='unauthorized')globalThis.CODEXBOT_BOOT?.ready();else if(network.phase==='offline'||navigator.onLine===false)globalThis.CODEXBOT_BOOT?.offline();
  connectionIssue=network.phase==='unauthorized'?t('A conexão precisa ser autorizada. Abra as preferências para reconectar.'):publicConnection?t('Não conseguimos alcançar o Mac pela conexão pública. Confira se ele está ligado e conectado à internet.'):remoteMode?t('Não conseguimos alcançar seu Mac. Confira se o Tailscale está ligado nos dois aparelhos. Suas conversas continuam salvas.'):t('O Mac ainda não respondeu. Estamos tentando reconectar; sua conversa e seu rascunho continuam salvos.');
  }finally{render();if(connected&&!document.hidden&&tab==='chat'&&!document.querySelector('dialog[open],.browser-fullscreen')&&$('#messages').scrollHeight-$('#messages').scrollTop-$('#messages').clientHeight<100){const latest=state.messages.filter(m=>(m.conversationId||m.agentId)===selected&&!m.streaming).at(-1);if(latest){seen[selected]=new Date().toISOString();localStorage.setItem('equipe-seen',JSON.stringify(seen));}if(latest)void pwa.read(selected,state.jobs.find(j=>j.id===latest.jobId)?.finishedAt||latest.createdAt);}nav();pwa.badge([...new Set([...state.messages.map(m=>m.conversationId||m.agentId),...state.jobs.map(j=>j.conversationId||j.agentId),...state.approvals.map(r=>r.conversationId||r.agentId)])].reduce((sum,id)=>sum+attention(state,id,seen).total,0));refreshPromise=null;}})();return refreshPromise;
 }
@@ -298,9 +301,10 @@ $('#edit-profile').onclick=()=>channel()?editChannel(channel()):editAgent(branch
 
 if(hash.has('conversation'))requestedConversation=hash.get('conversation');;
 const feedbackUI=setupFeedback({api,el,button,iconButton,openDialog,toast,refresh,getState:()=>state});
+globalThis.CODEXBOT_BOOT?.attach();
 translateStatic();renderFiles();resizePrompt();
 render();refresh().then(()=>{if(restoredView.tab)setTab(restoredView.tab);if(restoredView.scroll!==undefined)$('#messages').scrollTop=restoredView.scroll;});setInterval(()=>{if(!document.hidden)void refresh();},2000);
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)void refresh();});window.addEventListener('online',()=>void refresh());
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)void refresh();});window.addEventListener('online',()=>{globalThis.CODEXBOT_BOOT?.loading();void refresh();});window.addEventListener('codebox-retry',()=>void refresh());
 
 const avatarObserver=new IntersectionObserver(entries=>{for(const e of entries)e.target.classList.toggle('in-view',e.isIntersecting);});for(const node of [$('#header-avatar'),$('#profile-avatar')])avatarObserver.observe(node);document.addEventListener('visibilitychange',()=>document.documentElement.classList.toggle('page-hidden',document.hidden));
 

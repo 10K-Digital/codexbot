@@ -1,11 +1,16 @@
-/* Only public application assets are cached. Credentials, files and conversations never enter this cache. */
-const CACHE='equipe-shell-v35';
-const SHELL=['/public-access.js','/timezone.mjs','/file-links.mjs','/browser-fullscreen.mjs','/browser-url.mjs','/browser-clipboard.mjs','/navigation.mjs','/schedule.mjs','/routine-editor.mjs','/feedback.js','/live-voice.js','/voice.js','/mascot.svg','/','/app.js','/cards.mjs','/connection.mjs','/pwa.js','/i18n.mjs','/translations.mjs','/style.css','/manifest.webmanifest','/manifest.pt.webmanifest','/manifest.en.webmanifest','/manifest.es.webmanifest','/icon-192.png','/icon-512.png'];
-self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL))));
+/* Cache only generic offline artwork and fallback HTML, never authenticated responses. */
+const CACHE='equipe-shell-v37';
+const SHELL=['/offline.html','/boot.css','/boot.js','/mascot.svg','/mascot-crying.svg','/icon-192.png','/icon-512.png'];
+self.addEventListener('install',event=>event.waitUntil((async()=>{
+ const cache=await caches.open(CACHE);
+ for(const path of SHELL){const response=await fetch(path,{cache:'reload'});if(!response.ok||response.redirected)throw Error('Offline asset unavailable');await cache.put(path,response);}
+ await self.skipWaiting();
+})()));
 self.addEventListener('activate',event=>event.waitUntil(Promise.all([caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('equipe-shell-')&&k!==CACHE).map(k=>caches.delete(k)))),self.clients.claim()])));
 self.addEventListener('fetch',event=>{
- const url=new URL(event.request.url);if(event.request.method!=='GET'||url.origin!==self.location.origin||!SHELL.includes(url.pathname)||url.search)return;
- event.respondWith(fetch(event.request).then(response=>{if(response.ok&&response.type!=='opaqueredirect') {const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(event.request,copy));}return response;}).catch(()=>caches.match(event.request)));
+ const url=new URL(event.request.url);if(event.request.method!=='GET'||url.origin!==self.location.origin)return;
+ if(SHELL.includes(url.pathname)&&!url.search){event.respondWith(caches.match(url.pathname).then(cached=>cached||fetch(event.request)));return;}
+ if(event.request.mode==='navigate'&&url.pathname==='/')event.respondWith(fetch(event.request).then(response=>response.status>=500?caches.match('/offline.html'):response).catch(()=>caches.match('/offline.html')));
 });
 self.addEventListener('push',event=>event.waitUntil((async()=>{
  let data={};try{data=event.data.json();}catch{}

@@ -224,4 +224,10 @@ Each private installation detects its owner’s device timezone on connection, w
 
 ### Optional public access
 
-Use `bash install.sh --with-public-access`, or open the local Mac settings → Acesso público. Configure a dedicated Cloudflare Tunnel URL and token, choose a password, and enable access. The public endpoint always requires that password; local and Tailscale access remain available. See [native public access](docs/remote-access.md#acesso-público-nativo-com-senha-cloudflare-tunnel) for DNS setup, the dedicated gateway port, and recovery.
+Use `bash install.sh --with-public-access`, or open the local Mac settings → Acesso remoto e senha. Configure a dedicated Cloudflare Tunnel URL and token, choose a password, and enable access. The public endpoint always requires that password. Enable “Exigir senha também no Tailscale” to require the same password in addition to the Tailscale owner identity; it works even when the public tunnel is disabled. Local paired access remains available for recovery. See [native public access](docs/remote-access.md#acesso-público-nativo-com-senha-cloudflare-tunnel) for DNS setup, the dedicated gateway port, and recovery.
+
+### Push notifications and offline PWA
+
+Settings → Notificações push enables or disables notifications for the current browser/device. The permission request happens only after clicking Enable. Notifications cover completed unread messages, approvals, actionable cards and other tasks awaiting the user; repeated polls do not send duplicates. Titles identify the agent without including conversation content. The Mac must be running and connected. On iPhone/iPad, push requires iOS/iPadOS 16.4+ and launching the installed Home Screen web app; supported desktop/Android browsers can receive push without installing the PWA.
+
+The installed PWA shows the animated mascot while loading. When offline or unable to reach the Mac, a crying mascot loops until reconnection, then the loading animation returns. Both animations and the generic offline page are cached after the first successful online visit. Reduced-motion preferences disable the animations. Service workers cache only this generic artwork/fallback and notification icons, never API responses, configuration, login pages, messages or attachments. Reconnecting goes through normal authentication; offline content does not bypass a password.

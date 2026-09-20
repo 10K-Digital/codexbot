@@ -27,7 +27,7 @@ async function smallBody(req){let text='';for await(const chunk of req){text+=ch
 function reply(res,status,body,type='application/json; charset=utf-8'){
  res.writeHead(status,{'Content-Type':type,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','X-Frame-Options':'DENY'});res.end(type.startsWith('application/json')?JSON.stringify(body):body);
 }
-const loginPage=(error,language)=>{const tr=key=>translate(key,language);return `<!doctype html><html lang="${language}"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Entrar · Codebox</title><style>body{font:17px system-ui;background:#11151c;color:#eef2f8;max-width:400px;margin:12vh auto;padding:24px;line-height:1.6}input,button{box-sizing:border-box;width:100%;padding:14px;border-radius:10px;margin:12px 0;font:inherit}button{background:#315fdf;color:white;border:0}p{color:#b5bfce}.error{color:#ffb5b5}</style><h1>${tr('Seu Codebox')}</h1><p>${tr('Entre com a senha de acesso público definida no Mac.')}</p>${error?'<p role="alert" class="error">'+tr('Senha incorreta ou muitas tentativas. Aguarde e tente novamente.')+'</p>':''}<form method="post" action="/public/login"><label for="password">${tr('Senha')}</label><input id="password" name="password" type="password" autocomplete="current-password" required maxlength="256" autofocus><button>${tr('Entrar')}</button></form><p>${tr('Esqueceu a senha? Defina outra nas configurações do Codebox no Mac.')}</p></html>`;};
+const loginPage=(error,language)=>{const tr=key=>translate(key,language);return `<!doctype html><html lang="${language}"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Entrar · Codebox</title><style>body{font:17px system-ui;background:#11151c;color:#eef2f8;max-width:400px;margin:12vh auto;padding:24px;line-height:1.6}input,button{box-sizing:border-box;width:100%;padding:14px;border-radius:10px;margin:12px 0;font:inherit}button{background:#315fdf;color:white;border:0}p{color:#b5bfce}.error{color:#ffb5b5}</style><h1>${tr('Seu Codebox')}</h1><p>${tr('Entre com a senha de acesso remoto definida no Mac.')}</p>${error?'<p role="alert" class="error">'+tr('Senha incorreta ou muitas tentativas. Aguarde e tente novamente.')+'</p>':''}<form method="post" action="/public/login"><label for="password">${tr('Senha')}</label><input id="password" name="password" type="password" autocomplete="current-password" required maxlength="256" autofocus><button>${tr('Entrar')}</button></form><p>${tr('Esqueceu a senha? Defina outra nas configurações do Codebox no Mac.')}</p></html>`;};
 export function findCloudflared(){
  return [process.env.CODEXBOT_CLOUDFLARED,'/opt/homebrew/bin/cloudflared','/usr/local/bin/cloudflared',...(process.env.PATH||'').split(path.delimiter).map(p=>path.join(p,'cloudflared'))].filter(Boolean).find(p=>{try{fs.accessSync(p,fs.constants.X_OK);return true;}catch{return false;}})||null;
 }
@@ -38,10 +38,10 @@ export function createPublicAccess({root,bridgePort,bridgeToken,port=bridgePort+
  const read=()=>fs.existsSync(file)?JSON.parse(fs.readFileSync(file,'utf8')):{};
  let config=read().publicAccess||{enabled:false},server=null,child=null,retry=null,status='disabled',revision=0,closed=false,serial=Promise.resolve(),verifying=0;
  const sessions=new Map(),attempts=new Map(),proxies=new Set();let windowStart=Date.now(),windowCount=0;
- const getStatus=()=>({enabled:config.enabled===true,origin:config.origin||'',passwordSet:!!config.passwordHash,tunnelConfigured:!!config.tunnelToken,connectorInstalled:!!cloudflared(),status,port:server?.address()?.port||port,authentication:'password'});
+ const getStatus=()=>({enabled:config.enabled===true,requireTailscalePassword:config.requireTailscalePassword===true,origin:config.origin||'',passwordSet:!!config.passwordHash,tunnelConfigured:!!config.tunnelToken,connectorInstalled:!!cloudflared(),status,port:server?.address()?.port||port,authentication:'password'});
  function save(next){const all=read();all.publicAccess=next;const tmp=file+'.public.tmp';fs.writeFileSync(tmp,JSON.stringify(all,null,2),{mode:0o600});fs.renameSync(tmp,file);config=next;}
  function revoke(){revision++;sessions.clear();for(const p of proxies)p.destroy();proxies.clear();}
- function session(req){const raw=(req.headers.cookie||'').split(';').map(v=>v.trim()).find(v=>v.startsWith(COOKIE+'='))?.slice(COOKIE.length+1);if(!raw)return null;const key=digest(raw),expiry=sessions.get(key);if(!expiry||expiry<Date.now()){sessions.delete(key);return null;}return key;}
+ function session(req,origin){const raw=(req.headers.cookie||'').split(';').map(v=>v.trim()).find(v=>v.startsWith(COOKIE+'='))?.slice(COOKIE.length+1);if(!raw)return null;const key=digest(raw),entry=sessions.get(key);if(!entry||entry.expiresAt<Date.now()||entry.origin!==origin){sessions.delete(key);return null;}return key;}
  function canAttempt(req){
  const now=Date.now();if(now-windowStart>=60000){windowStart=now;windowCount=0;}
  for(const [key,v]of attempts)if(v.until<=now)attempts.delete(key);
@@ -49,16 +49,17 @@ export function createPublicAccess({root,bridgePort,bridgeToken,port=bridgePort+
  if(verifying>=2||windowCount>=30||v.count>=5||attempts.size>=1000&&!attempts.has(ip))return false;
  v.count++;attempts.set(ip,v);windowCount++;return true;
  }
- async function handle(req,res){
+ async function handle(req,res,{tailscale=false,origin=config.origin}={}){
+ const active=()=>tailscale?config.requireTailscalePassword===true:config.enabled===true;
  res.setHeader('Strict-Transport-Security','max-age=31536000');
- if(!config.enabled||!config.passwordHash||!config.origin)return reply(res,503,{error:'Acesso público desativado.'});
- if(!loopback(req.socket.remoteAddress)||req.headers.host!==new URL(config.origin).host||req.headers['x-forwarded-proto']!=='https')return reply(res,403,{error:'Conexão não autorizada.'});
+ if(!active()||!config.passwordHash||!origin)return reply(res,503,{error:'Acesso público desativado.'});
+ if(!loopback(req.socket.remoteAddress)||req.headers.host!==new URL(origin).host||(!tailscale&&req.headers['x-forwarded-proto']!=='https'))return reply(res,403,{error:'Conexão não autorizada.'});
  // Reject noncanonical paths so a denied route cannot be encoded past the gate.
  if(!req.url?.startsWith('/')||req.url.startsWith('//')||/[\\\x00-\x20]/.test(req.url))return reply(res,400,{error:'Caminho inválido.'});
- const url=new URL(req.url,config.origin);let decoded;try{decoded=decodeURIComponent(url.pathname);}catch{return reply(res,400,{error:'Caminho inválido.'});}
+ const url=new URL(req.url,origin);let decoded;try{decoded=decodeURIComponent(url.pathname);}catch{return reply(res,400,{error:'Caminho inválido.'});}
  if(decoded!==url.pathname||decoded!==req.url.split('?')[0])return reply(res,400,{error:'Caminho inválido.'});
  if(!['GET','HEAD','POST'].includes(req.method))return reply(res,405,{error:'Método não permitido.'});
- if((req.headers.origin&&req.headers.origin!==config.origin)||(req.method==='POST'&&req.headers.origin!==config.origin))return reply(res,403,{error:'Origem não autorizada.'});
+ if((req.headers.origin&&req.headers.origin!==origin)||(req.method==='POST'&&req.headers.origin!==origin))return reply(res,403,{error:'Origem não autorizada.'});
  if(url.pathname==='/public/login'){
   const language=resolveLanguage(null,String(req.headers['accept-language']||'pt').split(',').map(v=>v.split(';')[0].trim()));
   res.setHeader('Content-Security-Policy',"default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'");
@@ -67,23 +68,24 @@ export function createPublicAccess({root,bridgePort,bridgeToken,port=bridgePort+
   if(!canAttempt(req)){res.setHeader('Retry-After','900');return reply(res,429,loginPage(true,language),'text/html; charset=utf-8');}
   const current=revision;verifying++;
   let valid=false;try{valid=await verifyPassword(new URLSearchParams(await smallBody(req)).get('password'),config.passwordHash);}finally{verifying--;}
-  if(!valid||current!==revision||!config.enabled)return reply(res,401,loginPage(true,language),'text/html; charset=utf-8');
-  for(const [key,expiry]of sessions)if(expiry<Date.now())sessions.delete(key);
+  if(!valid||current!==revision||!active())return reply(res,401,loginPage(true,language),'text/html; charset=utf-8');
+  for(const [key,entry]of sessions)if(entry.expiresAt<Date.now())sessions.delete(key);
   if(sessions.size>=32)sessions.delete(sessions.keys().next().value);
-  const token=randomBytes(32).toString('base64url');sessions.set(digest(token),Date.now()+TTL);
+  const token=randomBytes(32).toString('base64url');sessions.set(digest(token),{expiresAt:Date.now()+TTL,origin});
   res.setHeader('Set-Cookie',`${COOKIE}=${token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${TTL/1000}`);
   res.writeHead(303,{'Location':'/','Cache-Control':'no-store'});return res.end();
  }
  if(url.pathname==='/public/logout'&&req.method==='POST'){
-  sessions.delete(session(req));res.setHeader('Set-Cookie',`${COOKIE}=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0`);res.setHeader('Clear-Site-Data','"cache", "storage"');res.writeHead(303,{'Location':'/public/login','Cache-Control':'no-store'});return res.end();
+  sessions.delete(session(req,origin));res.setHeader('Set-Cookie',`${COOKIE}=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0`);res.setHeader('Clear-Site-Data','"cache", "storage"');res.writeHead(303,{'Location':'/public/login','Cache-Control':'no-store'});return res.end();
  }
- if(!session(req)){
+ if(!session(req,origin)){
   if(url.pathname.startsWith('/api/'))return reply(res,401,{error:'Entre novamente com sua senha.',publicLogin:true});
   res.writeHead(303,{'Location':'/public/login','Cache-Control':'no-store'});return res.end();
  }
  if(url.pathname==='/connect'||url.pathname.startsWith('/api/public-access')||url.pathname.startsWith('/a2a')||url.pathname.startsWith('/.well-known')||url.pathname.startsWith('/public/'))return reply(res,403,{error:'Disponível somente no Mac.'});
  if(url.pathname==='/sw.js')return reply(res,200,fs.readFileSync(path.join(root,'dist/public-sw.js'),'utf8'),'text/javascript; charset=utf-8');
- if(url.pathname==='/config.js')return reply(res,200,'globalThis.CODEXBOT_CONFIG = '+JSON.stringify({publicConnection:true,remoteOrigin:config.origin})+';','text/javascript; charset=utf-8');
+ if(url.pathname==='/config.js')return reply(res,200,'globalThis.CODEXBOT_CONFIG = '+JSON.stringify({publicConnection:!tailscale,passwordConnection:true,remoteOrigin:origin})+';','text/javascript; charset=utf-8');
+ if(tailscale)return false;
  const headers={host:`127.0.0.1:${bridgePort}`,authorization:'Bearer '+bridgeToken};
  for(const name of ['content-type','content-length','accept','accept-language','range','if-range'])if(req.headers[name])headers[name]=req.headers[name];
  const upstream=http.request({host:'127.0.0.1',port:bridgePort,path:req.url,method:req.method,headers},response=>{
@@ -125,13 +127,15 @@ export function createPublicAccess({root,bridgePort,bridgeToken,port=bridgePort+
    if(config.enabled)launch();return getStatus();
   }
   const next={...config};if(input.enabled!==undefined){if(typeof input.enabled!=='boolean')throw Error('Configuração inválida.');next.enabled=input.enabled;}
+  if(input.requireTailscalePassword!==undefined){if(typeof input.requireTailscalePassword!=='boolean')throw Error('Configuração inválida.');next.requireTailscalePassword=input.requireTailscalePassword;}
   if(input.origin!==undefined)next.origin=publicOrigin(input.origin);
   if(input.password)next.passwordHash=await hashPassword(input.password);
   if(input.tunnelToken){if(typeof input.tunnelToken!=='string'||! /^[A-Za-z0-9_+/=-]{40,4096}$/.test(input.tunnelToken))throw Error('Token do túnel inválido. Cole apenas o token, não o comando.');next.tunnelToken=input.tunnelToken;}
+  if(next.requireTailscalePassword&&!next.passwordHash)throw Error('Defina uma senha antes de exigir autenticação no Tailscale.');
   if(next.enabled&&(!next.passwordHash||!next.origin||!next.tunnelToken))throw Error('Defina a URL, a senha e o token do túnel antes de ativar.');
   if(next.enabled&&!cloudflared())throw Error('Instale o conector Cloudflare no Mac antes de ativar.');
   await stop();save(next);try{await start();}catch{status='error';}
   return getStatus();
  });serial=work.catch(()=>{});return work;}
- return {status:getStatus,configure,revoke,async start(){try{await start();}catch{status='error';}},async close(){closed=true;await serial;await stop();},handler:handle};
+ return {status:getStatus,configure,revoke,async tailscaleGate(req,res,origin){if(!config.requireTailscalePassword)return false;return (await handle(req,res,{tailscale:true,origin}))!==false;},async start(){try{await start();}catch{status='error';}},async close(){closed=true;await serial;await stop();},handler:handle};
 }

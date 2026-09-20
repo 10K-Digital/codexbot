@@ -66,3 +66,11 @@ test('expired sessions and global brute-force attempts fail closed',async t=>{
  for(let i=0;i<29;i++)assert.equal((await request('/public/login',{method:'POST',headers:{origin,'cf-connecting-ip':'198.51.100.'+i},body:'password=wrong'})).status,401);
  assert.equal((await request('/public/login',{method:'POST',headers:{origin,'cf-connecting-ip':'198.51.100.99'},body:'password=wrong'})).status,429);
 });
+
+test('password sessions cannot be replayed across public and Tailscale origins',async t=>{
+ const {manager,login}=await fixture(t);await manager.configure({requireTailscalePassword:true});
+ const cookie=(await login()).headers['set-cookie'][0].split(';')[0];
+ const tls=http.createServer(async(req,res)=>{if(!await manager.tailscaleGate(req,res,'https://private.tailnet.ts.net'))res.end('authorized');});
+ await new Promise(r=>tls.listen(0,'127.0.0.1',r));t.after(()=>new Promise(r=>tls.close(r)));
+ const status=await new Promise((resolve,reject)=>{const req=http.get({host:'127.0.0.1',port:tls.address().port,path:'/api/state',headers:{host:'private.tailnet.ts.net',cookie}},res=>{res.resume();resolve(res.statusCode);});req.on('error',reject);});assert.equal(status,401);
+});

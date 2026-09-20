@@ -314,3 +314,11 @@ Uma URL por instalação exige provisionar um túnel e um registro DNS por insta
 O login ChatGPT oferecido pelo Sites autentica a origem hospedada pelo Sites. Ele não cria uma sessão automaticamente em outro subdomínio. Para adotá-lo, seria necessário implementar um intermediário com códigos de uso único, vínculo entre conta e instalação, validação server-side, expiração e revogação. A implementação atual usa a senha local explicitamente autorizada como alternativa; não simula login ChatGPT nem reutiliza as credenciais do Codex para autenticar visitantes.
 
 Referências: [Cloudflare Tunnel](https://developers.cloudflare.com/tunnel/get-started/), [DNS full setup](https://developers.cloudflare.com/dns/zone-setups/full-setup/setup/), [subdomain setup](https://developers.cloudflare.com/dns/zone-setups/subdomain-setup/), [Sites login](https://developers.openai.com/pt-BR/docs/sites#adicione-a-opção-entrar-com-o-chatgpt).
+
+### Senha opcional no Tailscale e PWA
+
+Nas preferências locais do Mac, **Acesso remoto e senha → Exigir senha também no Tailscale** adiciona a senha à validação da conta proprietária do Tailscale. A opção funciona sem ativar ou configurar Cloudflare. A senha é compartilhada pelas duas entradas, mas cada sessão fica vinculada ao seu domínio. Salvar as configurações revoga todas as sessões com senha; o painel local pareado permanece disponível para recuperação. A instalação do PWA deve usar diretamente o endereço HTTPS do Mac ou do túnel para que o cookie seja da mesma origem.
+
+As preferências também oferecem **Notificações push** por navegador/dispositivo, mediante permissão explícita do usuário. Os avisos incluem mensagens não lidas e tarefas pendentes, sem expor conteúdo privado. No iOS/iPadOS 16.4+, abra o PWA pela Tela de Início. O Mac deve estar ligado para enviar os avisos.
+
+Após uma visita online bem-sucedida, o PWA conserva somente a página off-line genérica, as animações do mascote e os ícones de notificação. Conversas, anexos, credenciais e respostas autenticadas não entram nesse cache. Ao retomar a conexão, o aplicativo volta ao carregamento e valida a sessão normalmente.
