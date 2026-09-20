@@ -1,5 +1,5 @@
 /* Cache only generic offline artwork and fallback HTML, never authenticated responses. */
-const CACHE='equipe-shell-v37';
+const CACHE='equipe-shell-v38';
 const SHELL=['/offline.html','/boot.css','/boot.js','/mascot.svg','/mascot-crying.svg','/icon-192.png','/icon-512.png'];
 self.addEventListener('install',event=>event.waitUntil((async()=>{
  const cache=await caches.open(CACHE);
