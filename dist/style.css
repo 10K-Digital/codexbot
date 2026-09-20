@@ -175,3 +175,5 @@ body.browser-fullscreen-open{overflow:hidden}
 .approval .actions{align-items:center}.approval .actions>a{display:inline-flex;text-decoration:none}.approval select{width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--fg)}.approval label{display:grid;gap:8px}.approval input:not([type=checkbox]){width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--fg)}.approval .form-error:empty{display:none}
 
 .file-preview-content{display:grid;gap:16px;min-width:0}.file-preview-text{max-height:65vh;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}.file-preview-image{max-width:100%;max-height:65vh;object-fit:contain}.file-preview-link{cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+
+button.danger{color:var(--danger,#b94141);border:1px solid currentColor;background:transparent}button.danger:hover{background:color-mix(in srgb,var(--danger,#b94141) 10%,transparent)}

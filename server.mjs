@@ -274,6 +274,8 @@ const server=http.createServer(async(req,res)=>{
     if(targets.some(id=>!byAgent.has(id)))throw Error('Agente desconhecido.');if(state.jobs.filter(j=>['queued','running','waiting'].includes(j.status)).length+targets.length>40)throw Error('Fila cheia.');
     const conversationId=branch?.id||(channel?'channel:'+channel.id:b.agentId);const jobs=targets.map((id,i)=>enqueue(id,b.text,{attachments:b.attachments||[],conversationId,suppressUser:i>0}));return send(202,{jobId:jobs[0].id,jobIds:jobs.map(j=>j.id)});}
    if(url.pathname==='/api/agents'){return send(200,manage.agent(b));}
+   if(url.pathname==='/api/skills/delete')return send(200,manage.deleteSkill(b));
+   if(url.pathname==='/api/routine/delete')return send(200,routines.remove(b));
    if(url.pathname==='/api/skills'){return send(200,manage.skill(b));}
    if(url.pathname==='/api/channels'){return send(200,manage.channel(b));}
    if(url.pathname==='/api/approval'){decide(b.id,b);return send(200,{ok:true});}

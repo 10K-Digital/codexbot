@@ -25,10 +25,19 @@ export function management({catalog,state,root,persist,byAgent,resetAgent}){
  fs.writeFileSync(target,instructions,{mode:0o600});if(!fs.existsSync(path.join(dir,'source.md')))fs.writeFileSync(path.join(dir,'source.md'),instructions,{mode:0o600});
  const s={...existing,id,name,description,path:target,...(internal?{native:true}:{})};if(existing)Object.assign(existing,s);else catalog.skills.push(s);save();return publicSkill(s);
  }
+ function deleteSkill({id}){
+  const skill=catalog.skills.find(s=>s.id===id);if(!skill)throw Error('Skill não encontrada.');
+  if(isNativeSkill(skill))throw Error('Skills nativas são gerenciadas pelo sistema e não podem ser excluídas.');
+  const affected=catalog.agents.filter(a=>a.skills?.includes(id));
+  const archive=path.join(root,'.runtime/deleted-skills');fs.mkdirSync(archive,{recursive:true,mode:0o700});
+  fs.writeFileSync(path.join(archive,randomUUID()+'.json'),JSON.stringify({skill,agentIds:affected.map(a=>a.id),instructions:fs.existsSync(skill.path)?fs.readFileSync(skill.path,'utf8'):null,deletedAt:new Date().toISOString()},null,2),{mode:0o600});
+  catalog.skills=catalog.skills.filter(s=>s.id!==id);for(const a of affected)a.skills=a.skills.filter(s=>s!==id);save();
+  return {ok:true};
+ }
  function channel(b){const name=text(b.name,80),members=[...new Set(b.members||[])];if(!members.length||members.length>20||members.some(id=>!byAgent.has(id)))throw Error('Selecione entre 1 e 20 agentes válidos.');const existing=b.id?state.channels.find(c=>c.id===b.id):null;if(b.id&&!existing)throw Error('Canal não encontrado.');const c={id:existing?.id||randomUUID(),name,description:String(b.description||'').slice(0,2000),members};if(existing)Object.assign(existing,c);else state.channels.push(c);persist();return c;
  }
  function migrateImportedSkills(){let count=0;for(const s of [...catalog.skills]){if(isNativeSkill(s))continue;const instructions=fs.readFileSync(s.path,'utf8');if(!isImportedWrapper(instructions))continue;const source=fs.readFileSync(path.join(path.dirname(s.path),'source.md'),'utf8');skill({...s,instructions:inlineImportedInstructions(instructions,source)});count++;}return count;}
  function readSkill(id){const s=catalog.skills.find(s=>s.id===id);if(!s)throw Error('Skill não encontrada.');if(isNativeSkill(s))throw Error('As instruções de skills nativas são gerenciadas pelo sistema.');const instructions=fs.readFileSync(s.path,'utf8');return {...publicSkill(s),instructions:isImportedWrapper(instructions)?inlineImportedInstructions(instructions,fs.readFileSync(path.join(path.dirname(s.path),'source.md'),'utf8')):instructions};}
  function installNativeSkill(b){const id=b.id||slug(b.name);if(!nativeIds.has(id))throw Error('Skill nativa desconhecida.');return skill(b,true);}
- return {agent,skill,channel,readSkill,installNativeSkill,migrateImportedSkills};
+ return {agent,skill,deleteSkill,channel,readSkill,installNativeSkill,migrateImportedSkills};
 }

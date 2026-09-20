@@ -20,6 +20,12 @@ export function createRoutines({state,persist,feedback,enqueue,onError=()=>{},no
   if(next.enabled&&next.schedule?.kind==='once'){if(next.dispatchedAt)throw Error('Esta rotina já foi disparada. Escolha uma nova data para agendar novamente.');if(b.enabled===true)onceDate(next.schedule.at,{future:true,now:now()});}
   for(const key of ['schedule','dispatchedAt'])if(!(key in next))delete r[key];Object.assign(r,next);persist();return {...view(r),running:state.jobs.some(j=>j.routineId===r.id&&['queued','running','waiting'].includes(j.status))};
  }
+ function remove({id}){
+  if(id===nativeId)throw Error('A rotina nativa não pode ser excluída. Você pode pausá-la.');
+  const routine=state.routines.find(r=>r.id===id);if(!routine)throw Error('Rotina desconhecida.');
+  state.deletedRoutines??=[];state.deletedRoutines.push({...routine,deletedAt:new Date(now()).toISOString()});
+  state.routines=state.routines.filter(r=>r.id!==id);if(state.scheduleSlots)delete state.scheduleSlots[id];persist();return {ok:true};
+ }
  function call(job,name,args){if(!job||job.a2a||job.feedbackReview)throw Error('Rotinas disponíveis apenas nas tarefas do proprietário.');if(name==='team_list_routines')return list(args);if(name==='team_update_routine')return update(args);throw Error('Ferramenta desconhecida.');}
  function tick(){
   for(const r of state.routines){
@@ -35,5 +41,5 @@ export function createRoutines({state,persist,feedback,enqueue,onError=()=>{},no
    catch(e){if(once){r.enabled=true;delete r.dispatchedAt;state.scheduleSlots[r.id]=previous;}persist();onError(r,e);}
   }
  }
- return {list,update,call,tick};
+ return {list,update,remove,call,tick};
 }

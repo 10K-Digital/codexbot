@@ -1,4 +1,14 @@
 export const messages = {
+"Excluir skill":{"en": "Delete skill", "es": "Eliminar skill"},
+"Excluir rotina":{"en": "Delete routine", "es": "Eliminar rutina"},
+"Excluir “{name}”?":{"en": "Delete “{name}”?", "es": "¿Eliminar “{name}”?"},
+"A skill será removida da biblioteca e de todos os agentes que a utilizam.":{"en": "The skill will be removed from the library and all agents that use it.", "es": "La skill se eliminará de la biblioteca y de todos los agentes que la utilizan."},
+"A rotina deixará de executar nos próximos horários. Tarefas já iniciadas ou na fila e o histórico serão mantidos.":{"en": "The routine will stop running on its schedule. Tasks already started or queued and history will be preserved.", "es": "La rutina dejará de ejecutarse en los próximos horarios. Se conservarán las tareas iniciadas o en cola y el historial."},
+"Skill excluída.":{"en": "Skill deleted.", "es": "Skill eliminada."},
+"Rotina excluída.":{"en": "Routine deleted.", "es": "Rutina eliminada."},
+"Skills nativas são gerenciadas pelo sistema e não podem ser excluídas.":{"en": "Native skills are managed by the system and cannot be deleted.", "es": "Las skills nativas son administradas por el sistema y no pueden eliminarse."},
+"A rotina nativa não pode ser excluída. Você pode pausá-la.":{"en": "The native routine cannot be deleted. You can pause it.", "es": "La rutina nativa no puede eliminarse. Puedes pausarla."},
+
 "Carregando prévia…":{"en": "Loading preview…", "es": "Cargando vista previa…"},
 "Este formato não tem prévia. Baixe o arquivo para abri-lo.":{"en": "This format has no preview. Download the file to open it.", "es": "Este formato no tiene vista previa. Descarga el archivo para abrirlo."},
 "Baixar arquivo":{"en": "Download file", "es": "Descargar archivo"},
