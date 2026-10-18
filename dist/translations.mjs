@@ -1,4 +1,8 @@
 export const messages = {
+ "Este agente aguarda sua revisão de uma tarefa anterior.":{"en":"This agent is waiting for your review of an earlier task.","es":"Este agente espera tu revisión de una tarea anterior."},
+ "Mensagem na fila. O agente responderá assim que houver uma vaga.":{"en":"Message queued. The agent will reply as soon as a slot is available.","es":"Mensaje en cola. El agente responderá cuando haya un lugar disponible."},
+ "Resposta registrada. Retomando assim que houver uma vaga.":{"en":"Response recorded. Resuming as soon as a slot is available.","es":"Respuesta registrada. Se reanudará cuando haya un lugar disponible."},
+ "Cancelar mensagem":{"en":"Cancel message","es":"Cancelar mensaje"},
  "O navegador ainda está encerrando. Tente novamente.":{"en":"The browser is still shutting down. Try again.","es":"El navegador todavía se está cerrando. Inténtalo de nuevo."},
  "Abrir navegador":{"en":"Open browser","es":"Abrir navegador"},
  "Abra o navegador pelo botão Abrir navegador.":{"en":"Open the browser using the Open browser button.","es":"Abre el navegador con el botón Abrir navegador."},

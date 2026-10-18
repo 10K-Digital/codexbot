@@ -22,3 +22,12 @@ export function completeTurn(job,turn){
  else job.error=turn?.error?.message||job.lastTransportError||job.error||'A execução terminou sem concluir. Revise antes de tentar novamente.';
  delete job.recovering;
 }
+
+// Waiting turns keep their agent and browser ownership, but release compute slots.
+export function executionAvailable(running,agents,agentId,{resume=false,limit=2}={}){
+ const own=running.get(agentId);
+ if(resume?(!own||!['waiting','running'].includes(own.status)):!!own)return false;
+ const active=[...running.values()].filter(job=>(!resume||job!==own)&&(job.status!=='waiting'||job.voice));
+ if(active.length>=limit)return false;
+ return !agents.get(agentId)?.browser||![...running.values()].some(job=>job.agentId!==agentId&&agents.get(job.agentId)?.browser);
+}

@@ -11,7 +11,7 @@ export function attention(state,id,seen={},includeThreads=false) {
  const pendingCards=messages.filter(m=>m.card?.actions?.length&&!m.card.response);
  const unread=messages.filter(m=>!pendingCards.includes(m)&&Math.max(Date.parse(m.createdAt)||0,Date.parse(state.jobs.find(j=>j.id===m.jobId)?.finishedAt)||0)>(Date.parse(seen[conversation(m)])||0)).length;
  const approvals=state.approvals.filter(r=>{const job=state.jobs.find(j=>j.id===r.jobId)||state.jobs.find(j=>j.agentId===r.agentId&&j.status==='waiting');return belongs({...r,conversationId:job?.conversationId||r.conversationId});});
- const waiting=state.jobs.filter(j=>belongs(j)&&j.status==='waiting'&&!approvals.some(r=>r.jobId===j.id||!r.jobId&&r.agentId===j.agentId)&&!pendingCards.some(m=>m.jobId===j.id));
+ const waiting=state.jobs.filter(j=>belongs(j)&&j.status==='waiting'&&!j.resumeQueued&&!approvals.some(r=>r.jobId===j.id||!r.jobId&&r.agentId===j.agentId)&&!pendingCards.some(m=>m.jobId===j.id));
  const tasks=pendingCards.length+waiting.length;
  return {unread,approvals:approvals.length,tasks,total:unread+approvals.length+tasks};
 }

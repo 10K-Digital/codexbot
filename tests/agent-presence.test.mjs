@@ -33,3 +33,8 @@ test('presence loops for active work, celebrates success once and never celebrat
  p.update([{id:'j',agentId:'a',conversationId:'thread:one',status:'completed'}],1500);assert.equal(p.get('a',1500).celebration,null);
  p.update([{id:'bad',agentId:'b',status:'failed'},{id:'pending',agentId:'c',status:'waiting'},{id:'queued',agentId:'d',status:'queued'}],1600);assert.equal(p.get('b',1600).celebration,null);assert.equal(p.get('c',1600).working,false);assert.equal(p.get('d',1600).working,true);
 });
+
+test('answered reviews waiting for capacity do not request attention again',()=>{
+ const state={messages:[],jobs:[{id:'j',agentId:'a',status:'waiting',resumeQueued:true}],approvals:[]};
+ assert.deepEqual(attention(state,'a'),{unread:0,approvals:0,tasks:0,total:0});
+});

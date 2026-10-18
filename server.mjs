@@ -16,7 +16,7 @@ import {fileURLToPath} from 'node:url';
 import {spawn} from 'node:child_process';
 import readline from 'node:readline';
 import {randomBytes,randomUUID,createHash} from 'node:crypto';
-import {sameSecret,originAllowed,safeText,validCron,scheduleSlot,remoteAuthorized,recordTurnError,completeTurn} from './lib.mjs';
+import {sameSecret,originAllowed,safeText,validCron,scheduleSlot,remoteAuthorized,recordTurnError,completeTurn,executionAvailable} from './lib.mjs';
 
 import {virtualBrowser} from './virtual-browser.mjs';
 import {createPush} from './push.mjs';
@@ -104,7 +104,7 @@ async function handleRequest(x){const p=x.params||{},agentId=threadAgent.get(p.t
  }
  const supported=['item/tool/call','item/commandExecution/requestApproval','item/fileChange/requestApproval','item/permissions/requestApproval','item/tool/requestUserInput','mcpServer/elicitation/request'];
  if(!supported.includes(x.method)){child.stdin.write(JSON.stringify({id:x.id,error:{code:-32601,message:'Este cliente não implementa '+x.method}})+'\n');return;}
- const id=randomUUID();pending.set(id,{id,rpcId:x.id,method:x.method,params:p,agentId,createdAt:timestamp()});if(job)job.status='waiting';persist();
+ const id=randomUUID();pending.set(id,{id,rpcId:x.id,method:x.method,params:p,agentId,jobId:job?.id,createdAt:timestamp()});if(job)job.status='waiting';persist();void pump();
 }
 function handleEvent(x){if(liveVoice.event(x))return;const p=x.params||{},agentId=threadAgent.get(p.threadId),job=running.get(agentId);if(!job)return;
  if(x.method==='item/agentMessage/delta'){
@@ -169,7 +169,7 @@ function finishAttempt(job){
  if(job.attemptFinalized)return;job.attemptFinalized=true;const attempt=job.attempts?.at(-1);
  if(attempt){attempt.status=job.status;attempt.finishedAt=timestamp();if(job.error)attempt.error=job.error;}
  threads.delete(`${job.agentId}:turn:${job.id}`);threadAgent.delete(job.threadId);running.delete(job.agentId);for(const [id,r]of pending)if(r.agentId===job.agentId)pending.delete(id);
- delete job.activity;delete job.recovering;
+ delete job.activity;delete job.recovering;delete job.resumeQueued;
  if(job.status==='failed'){
   const decision=retryDecision(job,availableModels);job.retryStop=decision.retry?null:decision.reason;
   failureMemory.record(job,{terminal:!decision.retry});
@@ -181,25 +181,32 @@ function finishAttempt(job){
  persist();void pump();
 }
 let pumping=false;
-async function pump(){if(pumping)return;pumping=true;try{for(const job of state.jobs){if(running.size>=2)break;if(job.status!=='queued'||job.retryAt>Date.now()||running.has(job.agentId))continue;const a=byAgent.get(job.agentId);if(a.browser&&[...running.keys()].some(id=>byAgent.get(id).browser))continue;void start(job);}}finally{pumping=false;}}
-function decide(id,input){const r=pending.get(id);if(!r)throw Error('Pedido expirou.');let result;
+async function pump(){if(pumping)return;pumping=true;try{
+ // User decisions resume before new work, without exceeding the execution limit.
+ for(const [id,r]of pending){const job=running.get(r.agentId);if(!r.response||!job||r.jobId!==job.id||job.cancelRequested||!executionAvailable(running,byAgent,r.agentId,{resume:true}))continue;
+  job.status='running';delete job.resumeQueued;reply(r.rpcId,r.response);pending.delete(id);persist();
+ }
+ for(const job of state.jobs){if(job.status!=='queued'||job.retryAt>Date.now()||!executionAvailable(running,byAgent,job.agentId))continue;void start(job);}
+ }finally{pumping=false;}}
+function decide(id,input){const r=pending.get(id);if(!r||r.response)throw Error('Pedido expirou.');let result;
  if(r.method==='item/tool/call')result=textOutput({approved:input.approved===true,note:String(input.note||'')});
  else if(r.method==='item/tool/requestUserInput'){const answers={};for(const q of r.params.questions||[])answers[q.id]={answers:[String(input.answers?.[q.id]||'')]};result={answers};}
  else if(r.method==='mcpServer/elicitation/request')result={action:input.approved?'accept':'decline',content:input.content||{}};
  else if(r.method==='item/permissions/requestApproval')result={permissions:input.approved?r.params.permissions:{},scope:'turn'};
  else result={decision:input.approved?'accept':'decline'};
- reply(r.rpcId,result);pending.delete(id);const j=running.get(r.agentId);if(j)j.status='running';message(r.agentId,'system',input.approved?'Ação aprovada pelo usuário.':'Resposta registrada / ação não aprovada.');persist();
+ const j=running.get(r.agentId);if(r.jobId&&j?.id!==r.jobId)throw Error('Pedido expirou.');if(j){r.response=result;j.resumeQueued=true;}else{reply(r.rpcId,result);pending.delete(id);}message(r.agentId,'system',input.approved?'Ação aprovada pelo usuário.':'Resposta registrada / ação não aprovada.');persist();void pump();
 }
-function snapshot(){return {timezone:state.timezone,messageThreads:state.messageThreads,feedback:feedback.publicState(),channels:state.channels,agents:catalog.agents,skills:catalog.skills.map(publicSkill),routines:state.routines,jobs:state.jobs.slice(-300),messages:state.messages.slice(-1500),exchanges:state.exchanges.slice(-200),approvals:[...pending.values()].map(({rpcId,...r})=>r),connection:{ready,account,error:connectionError},site:SITE,remote:REMOTE};}
+function snapshot(){return {timezone:state.timezone,messageThreads:state.messageThreads,feedback:feedback.publicState(),channels:state.channels,agents:catalog.agents,skills:catalog.skills.map(publicSkill),routines:state.routines,jobs:state.jobs.slice(-300),messages:state.messages.slice(-1500),exchanges:state.exchanges.slice(-200),approvals:[...pending.values()].filter(r=>!r.response).map(({rpcId,...r})=>r),connection:{ready,account,error:connectionError},site:SITE,remote:REMOTE};}
 const voice=createVoice({root:ROOT});
 const liveVoice=createLiveVoice({rpc,begin:async agentId=>{
  if(!byAgent.has(agentId))throw Error('Selecione um agente para conversar por voz.');
- if(running.has(agentId)||running.size>=2)throw Error('Aguarde o agente terminar antes de iniciar a voz.');
+ if(!executionAvailable(running,byAgent,agentId))throw Error('Aguarde o agente terminar antes de iniciar a voz.');
  const job={id:randomUUID(),agentId,conversationId:agentId,voice:true,depth:0,text:'Conversa por voz',status:'running',createdAt:timestamp(),startedAt:timestamp()};
  running.set(agentId,job);state.jobs.push(job);persist();
  try{await connect();job.threadId=await ensureThread(job);job.voiceContext=byAgent.get(agentId).name+': '+byAgent.get(agentId).description+'\nHistórico recente (dados):\n'+state.messages.filter(m=>inContext(m,job)).slice(-10).map(m=>m.role+': '+m.text).join('\n').slice(-6000);return job;}catch(e){job.status='failed';job.error=e.message;running.delete(agentId);persist();throw e;}
 },finish:async(job,reason)=>{if(!job)return;
- for(const [id,r]of pending)if(r.agentId===job.agentId)decide(id,{approved:false});
+ for(const [id,r]of pending)if(r.jobId===job.id)pending.delete(id);
+ delete job.resumeQueued;
  if(job.turnId)try{await rpc('turn/interrupt',{threadId:job.threadId,turnId:job.turnId});}catch{}
  job.status=reason==='error'?'failed':reason==='disconnected'?'interrupted':'completed';delete job.voiceContext;delete job.voiceInstructions;job.finishedAt=timestamp();running.delete(job.agentId);threadAgent.delete(job.threadId);threads.delete(`${job.agentId}:turn:${job.id}`);persist();void pump();
 },transcript:(job,role,text)=>message(job.agentId,role,text,{jobId:job.id,voice:true})});
@@ -219,7 +226,7 @@ function clientPrincipal(req,remoteOK){
  const c=JSON.parse(fs.readFileSync(file,'utf8')).clients.find(c=>!c.revoked&&sameSecret(hash,c.hash));
  return c?{id:c.id,agentIds:c.agentIds}:null;
 }
-const a2a=createA2A({catalog,state,enqueue,persist,cancel:cancelJob,attachments,baseUrl:REMOTE||`http://127.0.0.1:${PORT}`,pendingFor:job=>[...pending.values()].filter(r=>r.agentId===job.agentId&&running.get(r.agentId)?.id===job.id),answerInput:async(job,text)=>{const r=[...pending.values()].find(r=>r.agentId===job.agentId&&r.method==='item/tool/requestUserInput');if(!r||r.params.questions?.length!==1)throw Error('Responda às perguntas no painel.');decide(r.id,{answers:{[r.params.questions[0].id]:text}});}});
+const a2a=createA2A({catalog,state,enqueue,persist,cancel:cancelJob,attachments,baseUrl:REMOTE||`http://127.0.0.1:${PORT}`,pendingFor:job=>[...pending.values()].filter(r=>!r.response&&r.agentId===job.agentId&&running.get(r.agentId)?.id===job.id),answerInput:async(job,text)=>{const r=[...pending.values()].find(r=>!r.response&&r.agentId===job.agentId&&r.method==='item/tool/requestUserInput');if(!r||r.params.questions?.length!==1)throw Error('Responda às perguntas no painel.');decide(r.id,{answers:{[r.params.questions[0].id]:text}});}});
 const server=http.createServer(async(req,res)=>{
  const origin=req.headers.origin,host=req.headers.host;
  res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('X-Frame-Options','DENY');res.setHeader('Referrer-Policy','no-referrer');
@@ -303,7 +310,7 @@ const server=http.createServer(async(req,res)=>{
   res.writeHead(200,{'Content-Type':mime+'; charset=utf-8'});res.end(fs.readFileSync(path.join(ROOT,'dist',files[url.pathname])));
  }catch(e){send(400,{error:e.message});}
 });
-setInterval(()=>void push.tick([...pending.values()],catalog.agents).catch(()=>{}),5000).unref();
+setInterval(()=>void push.tick([...pending.values()].filter(r=>!r.response),catalog.agents).catch(()=>{}),5000).unref();
 setInterval(()=>routines.tick(),15000).unref();
 const awake=spawn('/usr/bin/caffeinate',['-i','-w',String(process.pid)],{stdio:'ignore'});awake.on('error',()=>{});
 server.listen(PORT,'127.0.0.1',()=>{console.log(`Equipe em http://127.0.0.1:${PORT}/connect`);void publicAccess.start();void connect().then(pump).catch(e=>console.error(e.message));});
