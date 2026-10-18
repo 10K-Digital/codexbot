@@ -18,17 +18,18 @@ test('HTTP messages run while other agents await review; decisions resume within
  const fake=path.join(root,'fake-codex.cjs');
  fs.writeFileSync(fake,`#!${process.execPath}
  const fs=require('fs'),rl=require('readline').createInterface({input:process.stdin});let n=0,seq=10000;
- const pending=new Map(),turns=new Map(),out=x=>process.stdout.write(JSON.stringify(x)+'\\n');
- const finish=(threadId,status='completed')=>{out({method:'item/completed',params:{threadId,item:{type:'agentMessage',id:'m'+threadId,text:'Synthetic reply'}}});out({method:'turn/completed',params:{threadId,turn:{id:turns.get(threadId),status}}});};
+ const stubborn=new Set(),pending=new Map(),turns=new Map(),out=x=>process.stdout.write(JSON.stringify(x)+'\\n');
+ const finish=(threadId,status='completed')=>{if(status==='completed')out({method:'item/completed',params:{threadId,item:{type:'agentMessage',id:'m'+threadId,text:'Synthetic reply'}}});out({method:'turn/completed',params:{threadId,turn:{id:turns.get(threadId),status}}});};
  rl.on('line',line=>{const x=JSON.parse(line);fs.appendFileSync(${JSON.stringify(path.join(root,'rpc.jsonl'))},line+'\\n');
   if(!x.method){if(pending.has(x.id)){const thread=pending.get(x.id);pending.delete(x.id);if(![...pending.values()].includes(thread))finish(thread);}return;}if(!x.id)return;
   let result={};if(x.method==='account/read')result={account:{type:'chatgpt',planType:'test'}};
   if(x.method==='model/list')result={data:[{model:'gpt-6-astra',supportedReasoningEfforts:[{reasoningEffort:'low'}]}]};
   if(x.method==='thread/start')result={thread:{id:'t'+(++n)}};
-  if(x.method==='turn/start'){turns.set(x.params.threadId,'turn'+n);result={turn:{id:'turn'+n}};}out({id:x.id,result});
-  if(x.method==='turn/interrupt')setImmediate(()=>finish(x.params.threadId,'interrupted'));
+  if(x.method==='turn/start'){turns.set(x.params.threadId,'turn'+n);result={turn:{id:'turn'+n}};}if(x.method==='turn/start'&&x.params.input[0].text.endsWith('UNCERTAIN'))out({id:x.id,error:{message:'timeout after turn admission'}});else out({id:x.id,result});
+  if(x.method==='turn/interrupt'&&!stubborn.has(x.params.threadId))setImmediate(()=>finish(x.params.threadId,'interrupted'));
   if(x.method==='turn/start'){const threadId=x.params.threadId,text=x.params.input[0].text.split('Mensagem atual do usuário:').at(-1);
-   if(text.includes('WAIT')){for(let i=0;i<(text.includes('MULTIPLE')?2:1);i++){const id=++seq;pending.set(id,threadId);setImmediate(()=>out({id,method:'mcpServer/elicitation/request',params:{threadId,message:'Synthetic review',requestedSchema:{type:'object',properties:{}}}}));}}
+   if(text.includes('WAIT')){for(let i=0;i<(text.includes('MULTIPLE')?2:1);i++){const id=++seq;pending.set(id,threadId);setImmediate(()=>out({method:'item/agentMessage/delta',params:{threadId,itemId:'partial'+id,delta:'Partial work'}}));setImmediate(()=>out({id,method:'mcpServer/elicitation/request',params:{threadId,message:'Synthetic review',requestedSchema:{type:'object',properties:{}}}}));}}
+   else if(text.includes('STUBBORN')||text.includes('UNCERTAIN')){stubborn.add(threadId);setImmediate(()=>out({method:'item/agentMessage/delta',params:{threadId,itemId:'stream',delta:'Still working'}}));}
    else if(!text.includes('HOLD'))setImmediate(()=>finish(threadId));
   }
  });`,{mode:0o700});
@@ -66,4 +67,24 @@ test('HTTP messages run while other agents await review; decisions resume within
  await api('stop',{jobId:holdTwo.jobId});await api('stop',{jobId:holdThree.jobId});
  await until(async()=>!(await api('state')).jobs.some(j=>['running','queued','waiting'].includes(j.status)));
  assert(!calls().some(x=>x.id===10003&&!x.method));
+ // Recovery is owner-authenticated, scoped, confirmed and never clears history.
+ const denied=await fetch('http://127.0.0.1:'+port+'/api/recovery',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'recover',scope:'all'})});assert.equal(denied.status,401);
+ const wait=await send('wait-one','WAIT'),queued=await send('wait-one','After recovery');
+ const unrelated=await send('wait-two','HOLD');await until(()=>jobStatus(wait.jobId,'waiting'));
+ const preview=await api('recovery',{action:'preview',scope:'agent',agentId:'wait-one'});
+ assert.deepEqual(new Set(preview.jobIds),new Set([wait.jobId,queued.jobId]));
+ await assert.rejects(api('recovery',{action:'recover',scope:'agent',agentId:'wait-one',...preview}));
+ s=await api('state');const previousMessages=s.messages.map(m=>m.id),previousRoutines=JSON.stringify(s.routines);
+ const result=await api('recovery',{action:'recover',scope:'agent',agentId:'wait-one',jobIds:preview.jobIds,confirmed:true});
+ assert.equal(result.stopped,2);assert.equal(result.remaining,0);assert(!(await api('state')).messages.some(m=>m.jobId===wait.jobId&&m.streaming));assert.equal((await api('state')).jobs.find(j=>j.id===unrelated.jobId).status,'running');
+ assert(!calls().filter(x=>x.method==='turn/start').some(x=>x.params.input[0].text.endsWith('After recovery')));
+ const stuck=await send('hold-one','UNCERTAIN');await until(async()=>{const current=await api('state');const j=current.jobs.find(j=>j.id===stuck.jobId);return j?.error&&j.status==='running';});
+ const uncertainPlan=await api('recovery',{action:'preview',scope:'agent',agentId:'hold-one'});const unconfirmed=await api('recovery',{action:'recover',scope:'agent',agentId:'hold-one',jobIds:uncertainPlan.jobIds,confirmed:true});assert.equal(unconfirmed.remaining,1);assert.equal((await api('state')).jobs.find(j=>j.id===stuck.jobId).status,'running');
+ const all=await api('recovery',{action:'preview',scope:'all'});
+ await assert.rejects(api('recovery',{action:'recover',scope:'all',jobIds:[],confirmed:true}));
+ const recovered=await api('recovery',{action:'recover',scope:'all',jobIds:all.jobIds,confirmed:true});
+ assert.equal(recovered.reconnected,true);assert.equal(recovered.remaining,0);
+ s=await api('state');assert.equal(JSON.stringify(s.routines),previousRoutines);assert(previousMessages.every(id=>s.messages.some(m=>m.id===id)));assert(!s.messages.some(m=>m.streaming));assert.equal(s.approvals.length,0);
+ const fresh=await send('general-manager','Reply after restarting');await until(()=>jobStatus(fresh.jobId,'completed'));
+
 });

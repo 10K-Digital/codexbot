@@ -88,6 +88,14 @@ Se a falha ocorreu antes de começar a instalação, o wrapper tenta reabrir o s
 
 O comando de nível baixo `npm run install-service` continua disponível para manutenção supervisionada, mas não inclui os checks de tarefas e backup do wrapper. Após setup/testes manuais, prefira `node scripts/install-local.mjs --bootstrap` para essa proteção.
 
+## Recuperar uma conversa travada
+
+No chat, use **Destravar agente** abaixo do estado da tarefa, ou abra **Sobre este agente → Destravar agente**. A confirmação mostra as quantidades na fila, em execução e aguardando revisão. Isso cancela as tarefas atuais desse agente, inclusive em threads e canais, e preserva histórico, arquivos e configurações. Outros agentes continuam trabalhando.
+
+Se a interrupção não for confirmada, abra **Preferências → Recuperar conversas → Destravar todos os agentes**. A opção global cancela as tarefas atuais de toda a equipe, reinicia a conexão do executor e só informa sucesso após a reconexão. Ações externas já realizadas não são desfeitas. As rotinas futuras continuam ativas; pause-as separadamente se necessário. Nenhuma tarefa cancelada é repetida automaticamente.
+
+Em versões anteriores sem esses controles, cancele primeiro as mensagens na fila e depois as tarefas em execução/aguardando usando **Interromper**, em cada agente. Aguarde não haver tarefas ativas e atualize pelo instalador habitual. O instalador continua recusando a atualização enquanto houver tarefas ativas, para preservar trabalho e aprovações. A atualização inclui a correção que libera vagas de execução enquanto outro agente aguarda revisão.
+
 ## Celular e acesso remoto
 
 O instalador abre apenas a ponte local. Não habilita VPN, túnel público, Tailscale Funnel nem publica a interface. Depois da instalação, siga [como funciona a ponte](mac-bridge.md) e [acesso remoto](remote-access.md) para Tailscale privado, SSH ou uma configuração pública com autenticação. A PWA, notificações e microfone remoto dependem de HTTPS e das permissões do navegador.

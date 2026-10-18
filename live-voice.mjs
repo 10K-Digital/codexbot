@@ -3,8 +3,8 @@ export function createLiveVoice({rpc,begin,finish,transcript,now=Date.now,maxMin
  let active=null;
  function get(id){if(!active||active.id!==id)throw Error('Sessão de voz encerrada.');return active;}
  async function stop(id,reason='requested'){
-  const s=get(id);if(s.closing)return;s.closing=true;s.phase='closed';s.reason=reason;s.reject?.(Error(s.error||'Sessão de voz encerrada.'));s.reject=null;
-  try{if(s.job?.threadId)await rpc('thread/realtime/stop',{threadId:s.job.threadId});}catch{}finally{await finish(s.job,reason);if(active===s)active=null;}
+  const s=get(id);if(s.closing)return s.stopping;s.closing=true;s.phase='closed';s.reason=reason;s.reject?.(Error(s.error||'Sessão de voz encerrada.'));s.reject=null;
+  s.stopping=(async()=>{try{if(s.job?.threadId)await rpc('thread/realtime/stop',{threadId:s.job.threadId});}catch{}finally{await finish(s.job,reason);if(active===s)active=null;}})();return s.stopping;
  }
  async function start({agentId,sdp}){
   if(active)throw Error('Já existe uma conversa por voz em andamento.');
@@ -25,6 +25,6 @@ export function createLiveVoice({rpc,begin,finish,transcript,now=Date.now,maxMin
  }
  const heartbeat=id=>{const s=get(id);s.lastSeen=now();return {phase:s.phase,error:s.error||null,seconds:Math.floor((now()-s.started)/1000)};};
  const tick=()=>{if(active?.job&&!active.closing&&(now()-active.lastSeen>idleMs||now()-active.started>maxMinutes*60000))void stop(active.id,'timeout');};
- const reset=()=>{if(active&&!active.closing)void stop(active.id,'disconnected');};
+ const reset=()=>{if(active)return stop(active.id,'disconnected');};
  return {start,stop,heartbeat,event,tick,reset};
 }
