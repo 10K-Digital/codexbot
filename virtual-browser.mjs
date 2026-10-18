@@ -2,42 +2,52 @@ import {browserDebugPort,browserLaunchArgs} from './browser-launch.mjs';
 import {normalizeBrowserURL} from './dist/browser-url.mjs';
 import {macClipboard,clipboardActions,browserClipboardAction,validateClipboardText} from './browser-clipboard.mjs';
 import fs from 'node:fs';import {spawn} from 'node:child_process';
-export function virtualBrowser(directory){
+export function virtualBrowser(directory,{spawnProcess=spawn,fileSystem=fs,fetchURL=fetch,Socket=WebSocket,debugPort=browserDebugPort,wait=ms=>new Promise(resolve=>setTimeout(resolve,ms))}={}){
  const clipboard=macClipboard();
- let child,socket,starting,seq=0,manualUntil=0,lastURL='',navigationError=null,mainFrame=null;const requests=new Map();let viewport={width:1280,height:800},port,activeId=null,known=new Set(),pages=[],queue=Promise.resolve();const pageState=new Map(),returnTo=new Map();
+ let child,socket,starting,opening,attempted=false,startError=null,seq=0,manualUntil=0,lastURL='',navigationError=null,mainFrame=null;const requests=new Map();let viewport={width:1280,height:800},port,activeId=null,known=new Set(),pages=[],queue=Promise.resolve();const pageState=new Map(),returnTo=new Map();
  async function rpc(method,params={}){if(!socket||socket.readyState!==1)throw Error('Navegador desconectado.');return new Promise((resolve,reject)=>{const id=++seq,timer=setTimeout(()=>{requests.delete(id);reject(Error('O navegador demorou para responder.'));},15000);requests.set(id,{resolve,reject,timer});socket.send(JSON.stringify({id,method,params}));});}
- async function start(){if(child&&child.exitCode===null&&port){await syncPages();return;}if(starting)return starting;starting=(async()=>{
- const binary='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';if(!fs.existsSync(binary))throw Error('Google Chrome não está instalado.');
- fs.mkdirSync(directory,{recursive:true,mode:0o700});port=null;
- const launchPort=await browserDebugPort();let launchError;
- child=spawn(binary,browserLaunchArgs(directory,launchPort),{stdio:'ignore'});const launched=child;
- child.on('error',error=>{launchError=error;});child.on('exit',()=>{if(child===launched){socket?.close();socket=null;port=null;}});
+ // Polling and reconnects may observe a session, but never launch or retry Chrome.
+ async function start({launch=false,retry=false}={}){
+ if(starting)return starting;
+ if(retry&&child&&child.exitCode===null&&!child.signalCode&&!port)throw startError||Error('O navegador ainda está encerrando. Tente novamente.');
+ if(retry)startError=null;
+ if(startError)throw startError;
+ if(port){await syncPages();return;}
+ if(!launch||attempted&&!retry)throw Error('Abra o navegador pelo botão Abrir navegador.');
+ attempted=true;
+ starting=(async()=>{
+ const binary='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';if(!fileSystem.existsSync(binary))throw Error('Google Chrome não está instalado.');
+ fileSystem.mkdirSync(directory,{recursive:true,mode:0o700});
+ const launchPort=await debugPort();let launchError;
+ child=spawnProcess(binary,browserLaunchArgs(directory,launchPort),{stdio:'ignore'});const launched=child;
+ launched.on('error',error=>{launchError=error;});launched.on('exit',()=>{if(child===launched){socket?.close();socket=null;port=null;startError=Error('Navegador desconectado. Abra o navegador pelo botão Abrir navegador.');}});
  try{
   for(let i=0;i<100;i++){
-   if(launchError||child.exitCode!==null||child.signalCode)throw Error('O navegador não iniciou. Feche a janela do navegador da equipe e tente novamente.');
-   try{const response=await fetch(`http://127.0.0.1:${launchPort}/json/version`,{signal:AbortSignal.timeout(300)});if(response.ok&&(await response.json()).webSocketDebuggerUrl){port=launchPort;break;}}catch{}
-   await new Promise(r=>setTimeout(r,100));
+   if(launchError||launched.exitCode!==null||launched.signalCode)throw Error('O navegador não iniciou. Feche a janela do navegador da equipe e tente novamente.');
+   try{const response=await fetchURL(`http://127.0.0.1:${launchPort}/json/version`,{signal:AbortSignal.timeout(300)});if(response.ok&&(await response.json()).webSocketDebuggerUrl&&!launchError&&launched.exitCode===null&&!launched.signalCode){port=launchPort;break;}}catch{}
+   await wait(100);
   }
   if(!port)throw Error('Não foi possível iniciar o navegador.');
  }catch(error){launched.kill();port=null;throw error;}
  const found=await listPages();const page=found[0];if(!page)throw Error('Nenhuma aba disponível.');known=new Set(found.map(p=>p.id));await attach(page);
- })().finally(()=>starting=null);return starting;}
- async function listPages(){const r=await fetch(`http://127.0.0.1:${port}/json/list`,{signal:AbortSignal.timeout(5000)});if(!r.ok)throw Error('Não foi possível listar as abas.');return (await r.json()).filter(p=>p.type==='page');}
+ })().catch(error=>{startError=error;throw error;}).finally(()=>starting=null);return starting;
+ }
+ async function listPages(){const r=await fetchURL(`http://127.0.0.1:${port}/json/list`,{signal:AbortSignal.timeout(5000)});if(!r.ok)throw Error('Não foi possível listar as abas.');return (await r.json()).filter(p=>p.type==='page');}
  async function attach(page){
  if(activeId)pageState.set(activeId,{lastURL,navigationError,mainFrame});socket?.close();const saved=pageState.get(page.id)||{};lastURL=saved.lastURL||page.url;navigationError=saved.navigationError||null;mainFrame=saved.mainFrame||null;activeId=page.id;
- socket=new WebSocket(page.webSocketDebuggerUrl);const attached=socket;await new Promise((resolve,reject)=>{socket.addEventListener('open',resolve,{once:true});socket.addEventListener('error',()=>reject(Error('Falha ao conectar ao navegador.')),{once:true});});
+ socket=new Socket(page.webSocketDebuggerUrl);const attached=socket;await new Promise((resolve,reject)=>{socket.addEventListener('open',resolve,{once:true});socket.addEventListener('error',()=>reject(Error('Falha ao conectar ao navegador.')),{once:true});});
  socket.addEventListener('message',event=>{if(socket!==attached)return;const x=JSON.parse(event.data);if(x.method==='Network.responseReceived'&&x.params.type==='Document'&&(!mainFrame||x.params.frameId===mainFrame)){const response=x.params.response;if(response.status>=400)navigationError='HTTP '+response.status;else navigationError=null;}if(x.method==='Page.frameNavigated'&&!x.params.frame.parentId)mainFrame=x.params.frame.id;const r=requests.get(x.id);if(r){requests.delete(x.id);clearTimeout(r.timer);x.error?r.reject(Error(x.error.message)):r.resolve(x.result);}});
  socket.addEventListener('close',()=>{if(socket!==attached)return;for(const r of requests.values()){clearTimeout(r.timer);r.reject(Error('Navegador desconectado.'));}requests.clear();});
  await rpc('Page.enable');await rpc('Network.enable');await rpc('Emulation.setDeviceMetricsOverride',{...viewport,deviceScaleFactor:1,mobile:false});
  }
  async function syncPages(followNew=true){const current=await listPages();if(!current.length)throw Error('Nenhuma aba disponível.');const opened=current.filter(p=>!known.has(p.id));for(const p of opened)returnTo.set(p.id,activeId);known=new Set(current.map(p=>p.id));pages=current;const selected=(followNew&&opened.length?opened[0]:null)||current.find(p=>p.id===activeId)||current.find(p=>p.id===returnTo.get(activeId))||current[0];if(selected.id!==activeId||socket?.readyState!==1)await attach(selected);}
  async function action(input,actor='user'){
- const op=input.action;if(op==='resize'&&(actor!=='user'||![input.width,input.height].every(n=>Number.isInteger(n)&&n>=100&&n<=3840)))throw Error('Dimensões do navegador inválidas.');const navigationURL=op==='navigate'?normalizeBrowserURL(input.url):null;if(clipboardActions.has(op)&&actor!=='user')throw Error('Clipboard disponível apenas por ação do usuário no painel.');if(['clipboardWrite','clipboardPaste'].includes(op))validateClipboardText(input.text);if(op==='release'){manualUntil=0;return {ok:true};}if(op==='takeover'){manualUntil=Number.MAX_SAFE_INTEGER;await start();return {ok:true};}
+ const op=input.action;if(op==='resize'&&(actor!=='user'||![input.width,input.height].every(n=>Number.isInteger(n)&&n>=100&&n<=3840)))throw Error('Dimensões do navegador inválidas.');const navigationURL=op==='navigate'?normalizeBrowserURL(input.url):null;if(clipboardActions.has(op)&&actor!=='user')throw Error('Clipboard disponível apenas por ação do usuário no painel.');if(['clipboardWrite','clipboardPaste'].includes(op))validateClipboardText(input.text);if(op==='release'){manualUntil=0;return {ok:true};}if(op==='takeover'){await start();manualUntil=Number.MAX_SAFE_INTEGER;return {ok:true};}
  if(actor==='agent'&&manualUntil>Date.now())throw Error('O usuário está controlando o navegador. Aguarde a liberação no painel.');
- if(actor==='user'&&!['screenshot','status','resize'].includes(op))manualUntil=Number.MAX_SAFE_INTEGER;
- await start();await syncPages(op==='screenshot'||op==='status');
+ await start({launch:op==='open'||op==='navigate',retry:op==='open'&&actor==='user'});await syncPages(op==='screenshot'||op==='status');
+ if(actor==='user'&&!['open','screenshot','status','resize'].includes(op))manualUntil=Number.MAX_SAFE_INTEGER;
  if(op==='switchTab'){const page=pages.find(p=>p.id===input.targetId);if(!page)throw Error('A aba foi fechada.');await attach(page);await rpc('Page.bringToFront');}
- else if(op==='closeTab'){if(pages.length<2)throw Error('Mantenha pelo menos uma aba aberta.');if(!pages.some(p=>p.id===input.targetId))throw Error('A aba foi fechada.');await fetch(`http://127.0.0.1:${port}/json/close/${encodeURIComponent(input.targetId)}`,{signal:AbortSignal.timeout(5000)});await syncPages(false);}
+ else if(op==='closeTab'){if(pages.length<2)throw Error('Mantenha pelo menos uma aba aberta.');if(!pages.some(p=>p.id===input.targetId))throw Error('A aba foi fechada.');await fetchURL(`http://127.0.0.1:${port}/json/close/${encodeURIComponent(input.targetId)}`,{signal:AbortSignal.timeout(5000)});await syncPages(false);}
  else if(input.targetId&&input.targetId!==activeId)throw Error('A aba mudou. Aguarde a tela atualizar antes de interagir.');
  if(clipboardActions.has(op))return browserClipboardAction(input,{actor,rpc,clipboard});
  if(op==='resize'){viewport={width:input.width,height:input.height};await rpc('Emulation.setDeviceMetricsOverride',{...viewport,deviceScaleFactor:1,mobile:false});}
@@ -50,8 +60,14 @@ export function virtualBrowser(directory){
  else if(op==='back'){const h=await rpc('Page.getNavigationHistory');if(h.currentIndex>0)await rpc('Page.navigateToHistoryEntry',{entryId:h.entries[h.currentIndex-1].id});}
  else if(op==='reload'){navigationError=null;if(lastURL)await rpc('Page.navigate',{url:lastURL});else await rpc('Page.reload');}
  else if(op==='text'){const r=await rpc('Runtime.evaluate',{expression:'document.body.innerText.slice(0,30000)',returnByValue:true});return {text:r.result.value};}
- else if(!['screenshot','status','switchTab','closeTab'].includes(op))throw Error('Ação desconhecida.');
+ else if(!['open','screenshot','status','switchTab','closeTab'].includes(op))throw Error('Ação desconhecida.');
  const tree=await rpc('Page.getFrameTree'),result={activeTargetId:activeId,tabs:pages.map(p=>({id:p.id,title:p.title||p.url||'Nova aba',url:p.url})),url:tree.frameTree.frame.url.startsWith('chrome-error:')?lastURL:tree.frameTree.frame.url,error:navigationError,manual:manualUntil>Date.now(),...viewport};if(op==='screenshot')result.image='data:image/jpeg;base64,'+(await rpc('Page.captureScreenshot',{format:'jpeg',quality:70})).data;return result;
  }
- return {action:(input,actor)=>{const result=queue.then(()=>action(input,actor));queue=result.catch(()=>{});return result;},close:()=>{socket?.close();child?.kill();}};
+ return {action:(input,actor)=>{
+  // Concurrent explicit opens share the same outcome, including a failed launch.
+  if(input.action==='open'&&opening)return opening;
+  const result=queue.then(()=>action(input,actor));queue=result.catch(()=>{});
+  if(input.action==='open'){opening=result;result.finally(()=>{if(opening===result)opening=null;}).catch(()=>{});}
+  return result;
+ },close:()=>{socket?.close();child?.kill();}};
 }

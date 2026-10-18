@@ -1,4 +1,9 @@
 export const messages = {
+ "O navegador ainda está encerrando. Tente novamente.":{"en":"The browser is still shutting down. Try again.","es":"El navegador todavía se está cerrando. Inténtalo de nuevo."},
+ "Abrir navegador":{"en":"Open browser","es":"Abrir navegador"},
+ "Abra o navegador pelo botão Abrir navegador.":{"en":"Open the browser using the Open browser button.","es":"Abre el navegador con el botón Abrir navegador."},
+ "Navegador desconectado. Abra o navegador pelo botão Abrir navegador.":{"en":"Browser disconnected. Open it using the Open browser button.","es":"Navegador desconectado. Ábrelo con el botón Abrir navegador."},
+
 "Acesso remoto e senha":{"en": "Remote access and password", "es": "Acceso remoto y contraseña"},
 "Senha de acesso remoto":{"en": "Remote access password", "es": "Contraseña de acceso remoto"},
 "Trocar a senha ou salvar as configurações encerra as sessões com senha abertas.":{"en": "Changing the password or saving settings ends open password sessions.", "es": "Cambiar la contraseña o guardar los ajustes cierra las sesiones con contraseña abiertas."},
