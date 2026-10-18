@@ -1,9 +1,11 @@
 # Codexbot
 
-Use a fresh worktree for every task and prefer the in-app browser for UI checks. Shared execution
-details are in `~/.codex/astra-policy.md`: start Astra at low effort, use at most two meaningful
-independent subjobs, use no automatic max/ultra escalation or fixed short-interval polling, and
-limit one subproblem to five rounds.
+Use a fresh worktree for every task and prefer the in-app browser for UI checks. Read
+[model selection](docs/agent-operations/model-selection.md) for project model and effort choices;
+it overrides the model allocations in `~/.codex/astra-policy.md`, including the Astra default
+and Terra implementation allocation. Preserve the other shared execution controls: use at most
+two meaningful independent subjobs, use no automatic max/ultra escalation or fixed short-interval
+polling, and limit one subproblem to five rounds.
 
 ## Privacy and safety gates
 
