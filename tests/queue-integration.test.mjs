@@ -87,4 +87,17 @@ test('HTTP messages run while other agents await review; decisions resume within
  s=await api('state');assert.equal(JSON.stringify(s.routines),previousRoutines);assert(previousMessages.every(id=>s.messages.some(m=>m.id===id)));assert(!s.messages.some(m=>m.streaming));assert.equal(s.approvals.length,0);
  const fresh=await send('general-manager','Reply after restarting');await until(()=>jobStatus(fresh.jobId,'completed'));
 
+ // Deleting agents is authenticated, explicit, idle-only and keeps completed history.
+ const deleted=await api('agents',{name:'Delete me',description:'Synthetic deletion target'});
+ const rejected=await fetch('http://127.0.0.1:'+port+'/api/agents/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:deleted.id,confirmed:true})});assert.equal(rejected.status,401);
+ await assert.rejects(api('agents/delete',{id:deleted.id}));
+ const busy=await send(deleted.id,'HOLD');await until(()=>jobStatus(busy.jobId,'running'));await assert.rejects(api('agents/delete',{id:deleted.id,confirmed:true}));
+ await api('stop',{jobId:busy.jobId});await until(()=>jobStatus(busy.jobId,'interrupted'));
+ const threadRoot=(await api('state')).messages.find(m=>m.jobId===busy.jobId);await api('threads',{messageId:threadRoot.id});
+ const c=await api('channels',{name:'Empty after deletion',members:[deleted.id]});
+ await api('agents/delete',{id:deleted.id,confirmed:true});s=await api('state');assert(!s.agents.some(a=>a.id===deleted.id));assert(s.messages.some(m=>m.id===threadRoot.id));assert(!s.messageThreads.some(t=>t.agentId===deleted.id));assert.deepEqual(s.channels.find(x=>x.id===c.id).members,[]);
+ await assert.rejects(send(deleted.id,'Must not execute'));await assert.rejects(api('threads',{messageId:threadRoot.id}));await assert.rejects(api('send',{channelId:c.id,text:'No agents'}));
+ const replacement=await api('agents',{name:'Delete me',description:'Fresh context'});assert.notEqual(replacement.id,deleted.id);
+ await api('agents/delete',{id:'general-manager',confirmed:true});assert(!(await api('state')).agents.some(a=>a.id==='general-manager'));
+
 });

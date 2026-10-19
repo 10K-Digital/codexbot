@@ -1,4 +1,15 @@
 export const messages = {
+ "Este canal está sem agentes":{"en":"This channel has no agents","es":"Este canal no tiene agentes"},
+ "Excluir agente":{"en": "Delete agent", "es": "Eliminar agente"},
+ "Agente excluído.":{"en": "Agent deleted.", "es": "Agente eliminado."},
+ "Confirme a exclusão do agente antes de continuar.":{"en": "Confirm agent deletion before continuing.", "es": "Confirma la eliminación del agente antes de continuar."},
+ "Conclua ou cancele as tarefas pendentes deste agente antes de excluí-lo.":{"en": "Complete or cancel this agent’s pending tasks before deleting it.", "es": "Completa o cancela las tareas pendientes de este agente antes de eliminarlo."},
+ "O agente sairá da equipe e dos canais. Suas rotinas futuras serão removidas. O histórico e os arquivos ficarão guardados no Mac, sem acesso pelo painel. Skills compartilhadas serão mantidas.":{"en": "The agent will be removed from the team and channels. Its future routines will be removed. History and files will remain stored on the Mac, without access through the panel. Shared skills will be kept.", "es": "El agente se eliminará del equipo y de los canales. Sus rutinas futuras se eliminarán. El historial y los archivos quedarán guardados en el Mac, sin acceso desde el panel. Se conservarán las skills compartidas."},
+ "Crie seu primeiro agente":{"en": "Create your first agent", "es": "Crea tu primer agente"},
+ "Adicione um agente para começar uma conversa.":{"en": "Add an agent to start a conversation.", "es": "Añade un agente para iniciar una conversación."},
+ "Nenhum agente ainda.":{"en": "No agents yet.", "es": "Aún no hay agentes."},
+ "Adicione um agente ao canal para enviar mensagens.":{"en": "Add an agent to the channel to send messages.", "es": "Añade un agente al canal para enviar mensajes."},
+
  "Codex desconectou. Revise antes de repetir.":{"en":"Codex disconnected. Review before trying again.","es":"Codex se desconectó. Revisa antes de volver a intentarlo."},
  "Nova mensagem":{"en":"New message","es":"Nuevo mensaje"},
  "Pensando…":{"en":"Thinking…","es":"Pensando…"},
