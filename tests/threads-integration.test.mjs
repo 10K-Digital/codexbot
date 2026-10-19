@@ -10,7 +10,7 @@ test('HTTP threads isolate context and every new task starts a fresh model sessi
  const moduleResponse=await fetch('http://127.0.0.1:'+port+'/public-access.js');assert.equal(moduleResponse.status,200);assert.match(moduleResponse.headers.get('content-type'),/javascript/);
  const publicSettings=await api('public-access');assert.equal(publicSettings.enabled,false);assert.equal(publicSettings.authentication,'password');
  const misrouted=await fetch('http://127.0.0.1:'+port+'/connect',{headers:{'CF-Connecting-IP':'198.51.100.3'}});assert.equal(misrouted.status,403);
- for(const asset of ['/chat-state.mjs','/boot.js','/boot.css','/offline.html','/mascot-crying.svg'])assert.equal((await fetch('http://127.0.0.1:'+port+asset)).status,200,asset);
+ for(const asset of ['/connection.mjs','/boot.js','/boot.css','/offline.html','/mascot-crying.svg'])assert.equal((await fetch('http://127.0.0.1:'+port+asset)).status,200,asset);
  const remoteRequest=(route,options={})=>new Promise((resolve,reject)=>{const req=http.request({host:'127.0.0.1',port,path:route,method:options.method||'GET',headers:{host:'synthetic.tailnet.ts.net','tailscale-user-login':'owner@example.com',...options.headers}},res=>{let body='';res.on('data',chunk=>body+=chunk);res.on('end',()=>resolve({status:res.statusCode,headers:{get:key=>Array.isArray(res.headers[key])?res.headers[key].join(','):res.headers[key]},text:async()=>body}));});req.on('error',reject);req.end(options.body);});
  assert.equal((await remoteRequest('/api/state')).status,200);
  await assert.rejects(api('public-access',{requireTailscalePassword:true}));

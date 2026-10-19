@@ -1,4 +1,3 @@
-import {chatJobPresentation,renderChatJobState} from './chat-state.mjs';
 import {recoveryDialog} from './recovery.mjs';
 import {publicAccessSettings} from './public-access.js';
 import {markdownLinks,localFileTarget} from './file-links.mjs';
@@ -12,7 +11,7 @@ import {describeSchedule,describeRoutine} from './schedule.mjs';
 import {setupFeedback} from './feedback.js';
 import {setupVoice} from './voice.js';
 import {renderCard,renderApproval} from './cards.mjs';
-import {attention,paintAvatar,createAgentPresence,paintPresence} from './connection.mjs';
+import {chatJobPresentation,renderChatJobState,attention,paintAvatar,createAgentPresence,paintPresence} from './connection.mjs';
 import {t,locale,currentLanguage,storedPreference,detectLanguage,browserLanguages,translateStatic} from './i18n.mjs';
 import {setupPWA} from './pwa.js';
 import {connectionState} from './connection.mjs';

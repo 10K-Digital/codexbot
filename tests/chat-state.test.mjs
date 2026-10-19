@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {chatJobPresentation,renderChatJobState} from '../dist/chat-state.mjs';
+import {chatJobPresentation,renderChatJobState} from '../dist/connection.mjs';
 
 const job=(status,extra={})=>({agentId:'a',status,...extra});
 class Node{constructor(tag,attrs={},text=''){Object.assign(this,{tag,attrs,text,children:[]});}append(...nodes){this.children.push(...nodes);}all(tag){return [...(this.tag===tag?[this]:[]),...this.children.flatMap(child=>child.all(tag))];}content(){return [this.text,...this.children.map(child=>child.content())].filter(Boolean).join(' ');}}
@@ -47,4 +47,12 @@ test('confirmed executor disconnect remains actionable even if a successor is qu
  const disconnected=chatJobPresentation(jobs,'a',{ready:false,error:'Disconnected'});assert.equal(disconnected.kind,'failed');assert.equal(disconnected.recoverable,true);assert.equal(render(disconnected).all('button')[0].text,'Destravar agente');
  // Initial connection and explicit reconnection are progress, not failures.
  assert.equal(chatJobPresentation(jobs,'a',{ready:false,error:null}).kind,'thinking');
+});
+
+test('a confirmed disconnect after admission is actionable on existing executor versions',()=>{
+ const jobs=[job('interrupted',{error:'Disconnected',finishedAt:'2026-10-19T12:01:00Z'}),job('queued',{createdAt:'2026-10-19T12:00:59Z'})];
+ assert.equal(chatJobPresentation(jobs,'a',{ready:false,error:null}).kind,'failed');
+ // Prior interruptions and an ongoing reconnection do not turn new work into errors.
+ jobs[1].createdAt='2026-10-19T12:02:00Z';assert.equal(chatJobPresentation(jobs,'a',{ready:false,error:null}).kind,'thinking');
+ jobs[1].createdAt='2026-10-19T12:00:59Z';assert.equal(chatJobPresentation([...jobs,job('running',{agentId:'other'})],'a',{ready:false,error:null}).kind,'thinking');
 });
