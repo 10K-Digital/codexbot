@@ -1,4 +1,10 @@
 export const messages = {
+ "Codex desconectou. Revise antes de repetir.":{"en":"Codex disconnected. Review before trying again.","es":"Codex se desconectó. Revisa antes de volver a intentarlo."},
+ "Nova mensagem":{"en":"New message","es":"Nuevo mensaje"},
+ "Pensando…":{"en":"Thinking…","es":"Pensando…"},
+ "O agente encontrou um problema ao responder.":{"en":"The agent encountered a problem while replying.","es":"El agente encontró un problema al responder."},
+ "O agente aguarda sua revisão em outra conversa.":{"en":"The agent is waiting for your review in another conversation.","es":"El agente espera tu revisión en otra conversación."},
+ "Revisar tarefa pendente":{"en":"Review pending task","es":"Revisar tarea pendiente"},
  "Cancelar":{"en":"Cancel","es":"Cancelar"},
  "Aguardando confirmação de parada…":{"en":"Waiting for confirmation that the task stopped…","es":"Esperando la confirmación de parada…"},
  "Destravar todos os agentes":{"en": "Recover all agents", "es": "Recuperar todos los agentes"},
